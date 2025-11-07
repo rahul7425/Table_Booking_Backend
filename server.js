@@ -4,7 +4,7 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 
 // Routes
-// const userRoutes = require("./routes/UserRoutes");
+const userRoutes = require("./Routes/UserRoute");
 // const restaurantRoutes = require("./routes/RestaurantRoutes");
 // const tableRoutes = require("./routes/TableRoutes");
 // const bookingRoutes = require("./routes/BookingRoutes");
@@ -21,7 +21,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // API Routes
-// app.use("/api/users", userRoutes);
+app.use("/api/users", userRoutes);
 // app.use("/api/restaurants", restaurantRoutes);
 // app.use("/api/tables", tableRoutes);
 // app.use("/api/bookings", bookingRoutes);
