@@ -1,7 +1,7 @@
-import Category from "../models/Category.js";
-import MenuItem from "../models/MenuItem.js";
-import Table from "../models/Table.js";
-import Schedule from "../models/Schedule.js";
+const Category = require("../Models/CategoryModel");
+const MenuItem = require("../Models/MenuModel");
+const Table = require("../Models/TableModel");
+const Schedule = require("../Models/ScheduleModel");
 
 const models = { Category, MenuItem, Table, Schedule };
 
@@ -11,7 +11,7 @@ const getModel = (modelName) => {
   return SelectedModel;
 };
 
-export const createBusinessData = async (req, res) => {
+const createBusinessData = async (req, res) => {
   try {
     const { model } = req.body;
     const SelectedModel = getModel(model);
@@ -39,7 +39,7 @@ export const createBusinessData = async (req, res) => {
   }
 };
 
-export const updateBusinessData = async (req, res) => {
+const updateBusinessData = async (req, res) => {
   try {
     const { model, id, ...updateData } = req.body;
     const SelectedModel = getModel(model);
@@ -66,7 +66,7 @@ export const updateBusinessData = async (req, res) => {
   }
 };
 
-export const deleteBusinessData = async (req, res) => {
+const deleteBusinessData = async (req, res) => {
   try {
     const { model, id } = req.body;
     const SelectedModel = getModel(model);
@@ -84,7 +84,7 @@ export const deleteBusinessData = async (req, res) => {
   }
 };
 
-export const getAllBusinessData = async (req, res) => {
+const getAllBusinessData = async (req, res) => {
   try {
     const { model, businessId, branchId } = req.body;
     const SelectedModel = getModel(model);
@@ -106,7 +106,7 @@ export const getAllBusinessData = async (req, res) => {
   }
 };
 
-export const getByIdBusinessData = async (req, res) => {
+const getByIdBusinessData = async (req, res) => {
   try {
     const { model, id } = req.body;
     const SelectedModel = getModel(model);
@@ -124,7 +124,7 @@ export const getByIdBusinessData = async (req, res) => {
   }
 };
 
-export const getByVendorBusinessData = async (req, res) => {
+const getByVendorBusinessData = async (req, res) => {
   try {
     const { model, branchId } = req.body;
     const SelectedModel = getModel(model);
@@ -143,4 +143,13 @@ export const getByVendorBusinessData = async (req, res) => {
     console.error("Error in getByVendorBusinessData:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
+};
+
+module.exports = {
+  createBusinessData,
+  updateBusinessData,
+  deleteBusinessData,
+  getAllBusinessData,
+  getByIdBusinessData,
+  getByVendorBusinessData,
 };

@@ -1,5 +1,5 @@
 // models/Table.js
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const tableSchema = new mongoose.Schema(
   {
@@ -35,4 +35,8 @@ const tableSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("Table", tableSchema);
+// ❌ Wrong:
+// export default mongoose.model("Table", tableSchema);
+
+// ✅ Correct:
+module.exports = mongoose.model("Table", tableSchema);
