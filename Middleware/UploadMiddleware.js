@@ -22,6 +22,9 @@ const storage = multer.diskStorage({
       case "owner":
         folder = "uploads/owners";
         break;
+            case "blog":  
+        folder = "uploads/blogs";
+        break;
       default:
         folder = "uploads/others";
     }

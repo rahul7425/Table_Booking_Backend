@@ -1,7 +1,12 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
+
 const connectDB = require("./config/db");
+
+const blogRoutes = require("./Routes/blogRoutes");
+
 
 // Routes
 const userRoutes = require("./Routes/UserRoute");
@@ -11,6 +16,8 @@ const userRoutes = require("./Routes/UserRoute");
 // const orderRoutes = require("./routes/OrderRoutes");
 
 const app = express();
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
 
 // Connect MongoDB
 connectDB();
@@ -26,6 +33,9 @@ app.use("/api/users", userRoutes);
 // app.use("/api/tables", tableRoutes);
 // app.use("/api/bookings", bookingRoutes);
 // app.use("/api/orders", orderRoutes);
+
+app.use("/api/blogs", blogRoutes);
+
 
 // Default route
 app.get("/", (req, res) => {
