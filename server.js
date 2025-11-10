@@ -5,8 +5,8 @@ const connectDB = require("./config/db");
 
 // Routes
 const userRoutes = require("./Routes/UserRoute");
-// const restaurantRoutes = require("./routes/RestaurantRoutes");
-// const tableRoutes = require("./routes/TableRoutes");
+const adminRoutes = require("./Routes/AdminRoute");
+const businessRoutes = require("./Routes/BusinessRoute");
 // const bookingRoutes = require("./routes/BookingRoutes");
 // const orderRoutes = require("./routes/OrderRoutes");
 
@@ -22,8 +22,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // API Routes
 app.use("/api/users", userRoutes);
-// app.use("/api/restaurants", restaurantRoutes);
-// app.use("/api/tables", tableRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/business", businessRoutes);
 // app.use("/api/bookings", bookingRoutes);
 // app.use("/api/orders", orderRoutes);
 
