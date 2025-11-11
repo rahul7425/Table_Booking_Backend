@@ -1,7 +1,13 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
+
 const connectDB = require("./config/db");
+
+const blogRoutes = require("./Routes/blogRoutes");
+const commentRoutes = require("./Routes/commentRoutes");
+
 
 // Routes
 const userRoutes = require("./Routes/UserRoute");
@@ -11,6 +17,8 @@ const businessRoutes = require("./Routes/BusinessRoute");
 // const orderRoutes = require("./routes/OrderRoutes");
 
 const app = express();
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
 
 // Connect MongoDB
 connectDB();
@@ -27,7 +35,12 @@ app.use("/api/business", businessRoutes);
 // app.use("/api/bookings", bookingRoutes);
 // app.use("/api/orders", orderRoutes);
 
-// Default route
+app.use("/api/blogs", blogRoutes);
+app.use("/api/comments", commentRoutes);
+
+
+
+// Default route 
 app.get("/", (req, res) => {
   res.send("🍽️ Hotel Table Booking Backend is Running...");
 });
