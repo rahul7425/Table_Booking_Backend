@@ -4,6 +4,9 @@ const upload = require("../Middleware/UploadMiddleware");
 const { protect, authorizeRoles } = require("../Middleware/AuthMiddleware");
 const {
   registerUser,
+  sendMobileOtp,
+  verifyMobileOtp,
+  verifyMail,
   verifyOtpAndLogin,
   forgotPassword,
   updateProfile,
@@ -15,8 +18,12 @@ const {
 // 🔹 Registration (User/Vendor)
 router.post("/register", registerUser);
 
+router.post("/send-mobile-otp",sendMobileOtp);
+router.post("/verify-mobile-otp",verifyMobileOtp);
+router.post("/verify-mail",verifyMail);
+
 // 🔹 OTP Verification + Login
-router.post("/verify-otp", verifyOtpAndLogin);
+router.post("/verify-otp-login", verifyOtpAndLogin);
 
 // 🔹 Forgot Password
 router.post("/forgot-password", forgotPassword);
