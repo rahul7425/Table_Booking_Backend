@@ -39,6 +39,7 @@ app.use("/api/blogs", blogRoutes);
 app.use("/api/comments", commentRoutes);
 
 
+
 // Default route 
 app.get("/", (req, res) => {
   res.send("🍽️ Hotel Table Booking Backend is Running...");
