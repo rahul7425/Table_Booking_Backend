@@ -6,14 +6,12 @@ const path = require("path");
 const connectDB = require("./config/db");
 
 const blogRoutes = require("./Routes/blogRoutes");
+const commentRoutes = require("./Routes/commentRoutes");
 
 
 // Routes
 const userRoutes = require("./Routes/UserRoute");
-// const restaurantRoutes = require("./routes/RestaurantRoutes");
-// const tableRoutes = require("./routes/TableRoutes");
-// const bookingRoutes = require("./routes/BookingRoutes");
-// const orderRoutes = require("./routes/OrderRoutes");
+
 
 const app = express();
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
@@ -29,15 +27,12 @@ app.use(express.urlencoded({ extended: true }));
 
 // API Routes
 app.use("/api/users", userRoutes);
-// app.use("/api/restaurants", restaurantRoutes);
-// app.use("/api/tables", tableRoutes);
-// app.use("/api/bookings", bookingRoutes);
-// app.use("/api/orders", orderRoutes);
 
 app.use("/api/blogs", blogRoutes);
+app.use("/api/comments", commentRoutes);
 
 
-// Default route
+// Default route 
 app.get("/", (req, res) => {
   res.send("🍽️ Hotel Table Booking Backend is Running...");
 });

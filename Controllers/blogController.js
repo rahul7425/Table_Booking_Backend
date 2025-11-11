@@ -1,6 +1,7 @@
 // controllers/blogController.js
 const fs = require("fs");
 const path = require("path");
+const mongoose = require("mongoose");
 const Blog = require("../Models/Blog");
 const slugify = require("slugify");
 
@@ -56,6 +57,7 @@ const deleteFileIfExists = (filePath) => {
 // };
 
 // CREATE blog
+
 exports.createBlog = async (req, res) => {
   try {
     const {
