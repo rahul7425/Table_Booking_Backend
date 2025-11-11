@@ -15,88 +15,63 @@ const addressSchema = new mongoose.Schema({
 // -------------------- Business Schema --------------------
 const businessSchema = new mongoose.Schema(
   {
-    // Vendor who owns this business (main owner)
     vendorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
 
-    // Core business info
     name: { type: String, required: true },
     description: String,
     images: [String],
     address: addressSchema,
 
-    // Business active or temporarily paused (accepting bookings or not)
     isActive: { type: Boolean, default: true },
 
-    // 🏪 Branches under this business (multi-location)
-    branches: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Branch",
-      },
-    ],
+    branches: [{ type: mongoose.Schema.Types.ObjectId, ref: "Branch" }],
+    menuItems: [{ type: mongoose.Schema.Types.ObjectId, ref: "MenuItem" }],
+    categories: [{ type: mongoose.Schema.Types.ObjectId, ref: "Category" }],
+    tables: [{ type: mongoose.Schema.Types.ObjectId, ref: "Table" }],
+    schedules: [{ type: mongoose.Schema.Types.ObjectId, ref: "Schedule" }],
+    commissionId: { type: mongoose.Schema.Types.ObjectId, ref: "Commission" },
+    wallets: [{ type: mongoose.Schema.Types.ObjectId, ref: "Wallet" }],
+    reviews: [{ type: mongoose.Schema.Types.ObjectId, ref: "Review" }],
 
-    // 🍴 Menu Items belonging to this business (can be same across branches)
-    menuItems: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "MenuItem",
-      },
-    ],
+    defaultCommissionPercentage: { type: Number, default: 50 },
 
-    // 📂 Categories (like Food / Drinks / etc.)
-    categories: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Category",
-      },
-    ],
-
-    // 🪑 Tables (could be shared across branches logically)
-    tables: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Table",
-      },
-    ],
-
-    // 📅 Schedules (table booking slots)
-    schedules: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Schedule",
-      },
-    ],
-
-    // 💸 Commission info (for this vendor or business)
-    commissionId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Commission",
+    // ⭐ New Additions for Filter API
+    averageRating: { type: Number, default: 0 },
+    totalRatings: { type: Number, default: 0 },
+    categoryType: {
+      type: String,
+      enum: ["veg", "nonveg", "drinks", "both"],
+      default: "both",
     },
 
-    // 👛 Wallets (each branch has one wallet but business can have aggregated wallet)
-    wallets: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Wallet",
+    // 🌍 Location for Nearby Filter
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
       },
-    ],
-
-    // ⭐ Reviews from users for this business
-    reviews: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Review",
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        default: [0, 0],
       },
-    ],
-
-    // 🧾 Default commission snapshot at creation (50% admin by default)
-    defaultCommissionPercentage: { type: Number, default: 50 },
+    },
   },
   { timestamps: true }
 );
+
+// Text & Geo Indexes
+businessSchema.index({ location: "2dsphere" });
+businessSchema.index({
+  name: "text",
+  description: "text",
+  "address.area": "text",
+  "address.street": "text",
+  "address.city": "text",
+});
 
 module.exports = mongoose.model("Business", businessSchema);
