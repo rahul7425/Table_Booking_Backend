@@ -1,5 +1,5 @@
 // models/MenuItem.js
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const menuItemSchema = new mongoose.Schema(
   {
@@ -26,4 +26,6 @@ const menuItemSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("MenuItem", menuItemSchema);
+// ❌ Wrong: export default ...
+// ✅ Correct:
+module.exports = mongoose.model("MenuItem", menuItemSchema);

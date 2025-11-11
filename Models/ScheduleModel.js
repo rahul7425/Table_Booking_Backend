@@ -1,5 +1,5 @@
 // models/Schedule.js
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const slotSchema = new mongoose.Schema({
   time: { type: String, required: true }, // e.g., "8:00 AM"
@@ -42,4 +42,5 @@ const scheduleSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("Schedule", scheduleSchema);
+// ✅ CommonJS export
+module.exports = mongoose.model("Schedule", scheduleSchema);
