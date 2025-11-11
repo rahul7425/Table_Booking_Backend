@@ -1,3 +1,4 @@
+// this is for business parts like menu, scheddule etc.
 const express = require("express");
 const upload = require("../Middleware/UploadMiddleware");
 const { protect, authorizeRoles } = require("../Middleware/AuthMiddleware");
