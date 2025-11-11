@@ -240,21 +240,96 @@ exports.getBusinessById = async (req, res) => {
 
 exports.getBusinesses = async (req, res) => {
   try {
-    const { vendorId, page = 1, limit = 20, activeOnly } = req.body;
-    const filter = {};
+    const {
+      vendorId,
+      page = 1,
+      limit = 20,
+      businessName,
+      menuItemName,
+      category,
+      area,
+      street,
+      pincode,
+      minRate,
+      maxRate,
+      nearby,
+      topRated,
+      activeOnly,
+    } = req.body;
+
+    let filter = {};
+
+    // 🔹 Vendor-based filter
     if (vendorId) filter.vendorId = vendorId;
+
+    // 🔹 Active business filter
     if (activeOnly) filter.isActive = true;
 
+    // 🔹 Search by Business Name
+    if (businessName) {
+      filter.name = { $regex: businessName, $options: "i" };
+    }
+
+    // 🔹 Location-based filters
+    if (area) filter["address.area"] = { $regex: area, $options: "i" };
+    if (street) filter["address.street"] = { $regex: street, $options: "i" };
+    if (pincode) filter["address.pincode"] = pincode;
+
+    // 🔹 Rating Filter (1–5 stars)
+    if (topRated) {
+      filter.rating = { $gte: 4 }; // Example: 4+ stars
+    }
+
+    // 🔹 Price Range Filter
+    if (minRate || maxRate) {
+      filter["menu.price"] = {};
+      if (minRate) filter["menu.price"].$gte = Number(minRate);
+      if (maxRate) filter["menu.price"].$lte = Number(maxRate);
+    }
+
+    // 🔹 Search by Menu Item Name or Category
+    let menuBusinessIds = [];
+    if (menuItemName || category) {
+      const menuFilter = {};
+
+      if (menuItemName)
+        menuFilter.name = { $regex: menuItemName, $options: "i" };
+      if (category)
+        menuFilter.category = { $regex: category, $options: "i" };
+
+      const menus = await Menu.find(menuFilter).select("businessId");
+      menuBusinessIds = menus.map((m) => m.businessId);
+
+      if (menuBusinessIds.length > 0)
+        filter._id = { $in: menuBusinessIds };
+      else
+        return res.status(200).json({ success: true, count: 0, data: [] });
+    }
+
+    // 🔹 Nearby Filter (example using city or lat/lng if available)
+    if (nearby && nearby.city) {
+      filter["address.city"] = { $regex: nearby.city, $options: "i" };
+    }
+
+    // 🔹 Execute Query with Pagination
     const businesses = await Business.find(filter)
-      .sort({ createdAt: -1 })
+      .sort(topRated ? { rating: -1 } : { createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
 
     const count = await Business.countDocuments(filter);
-    return res.status(200).json({ success: true, count, data: businesses });
+
+    res.status(200).json({
+      success: true,
+      count,
+      data: businesses,
+    });
   } catch (error) {
     console.error("getBusinesses error:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
