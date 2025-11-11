@@ -13,6 +13,7 @@ const commentRoutes = require("./Routes/commentRoutes");
 const userRoutes = require("./Routes/UserRoute");
 const adminRoutes = require("./Routes/AdminRoute");
 const businessRoutes = require("./Routes/BusinessRoute");
+const detailRoutes = require("./Routes/Business");
 // const bookingRoutes = require("./routes/BookingRoutes");
 // const orderRoutes = require("./routes/OrderRoutes");
 
@@ -32,6 +33,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/business", businessRoutes);
+app.use("/api/details", detailRoutes);
+
 // app.use("/api/bookings", bookingRoutes);
 // app.use("/api/orders", orderRoutes);
 
