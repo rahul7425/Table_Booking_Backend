@@ -2,8 +2,18 @@ const Category = require("../Models/CategoryModel");
 const MenuItem = require("../Models/MenuModel");
 const Table = require("../Models/TableModel");
 const Schedule = require("../Models/ScheduleModel");
+const Business = require("../Models/BusinessModel");
 
 const models = { Category, MenuItem, Table, Schedule };
+
+// Map models to Business array fields
+const businessFieldMap = {
+  Category: "categories",
+  MenuItem: "menuItems",
+  Table: "tables",
+  Schedule: "schedules",
+};
+
 
 const getModel = (modelName) => {
   const SelectedModel = models[modelName];
@@ -19,15 +29,22 @@ const createBusinessData = async (req, res) => {
 
     // ✅ Handle single or multiple images
     if (req.files && req.files.length > 0) {
-      payload.images = req.files.map((file) => file.path);
+      payload.images = req.files.map((file) => file.path.replace(/\\/g, "/"));
     } else if (req.file) {
-      payload.image = req.file.path;
+      payload.image = req.file.path.replace(/\\/g, "/");
     }
 
     delete payload.model;
 
     const newItem = new SelectedModel(payload);
     await newItem.save();
+
+    // ✅ AUTO PUSH TO BUSINESS DOCUMENT
+    if (payload.businessId && businessFieldMap[model]) {
+      await Business.findByIdAndUpdate(payload.businessId, {
+        $push: { [businessFieldMap[model]]: newItem._id }
+      });
+    }
 
     res.status(201).json({
       success: true,

@@ -62,7 +62,7 @@ exports.createBusiness = async (req, res) => {
 
     const images = [];
     if (req.files && req.files.length) {
-      req.files.forEach((f) => images.push(f.path));
+      req.files.forEach((f) => images.push(f.path.replace(/\\/g, "/")));
     }
 
     // parse address if sent as string
@@ -220,23 +220,51 @@ exports.updateBusiness = async (req, res) => {
   }
 };
 
+// exports.getBusinessById = async (req, res) => {
+//   try {
+//     const { businessId } = req.params;
+//     if (!businessId) return res.status(400).json({ message: "businessId param required" });
+
+//     const business = await Business.findById(businessId).populate({
+//       path: "branches",
+//       populate: { path: "walletId", model: "Wallet" },
+//     });
+
+//     if (!business) return res.status(404).json({ message: "Business not found" });
+//     return res.status(200).json({ success: true, data: business });
+//   } catch (error) {
+//     console.error("getBusinessById error:", error);
+//     return res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+
 exports.getBusinessById = async (req, res) => {
   try {
     const { businessId } = req.params;
-    if (!businessId) return res.status(400).json({ message: "businessId param required" });
+    if (!businessId)
+      return res.status(400).json({ message: "businessId param required" });
 
-    const business = await Business.findById(businessId).populate({
-      path: "branches",
-      populate: { path: "walletId", model: "Wallet" },
-    });
+    const business = await Business.findById(businessId)
+      .populate("categories")
+      .populate("menuItems")     // ✅ Add this
+      .populate("tables")        // ✅ Add this
+      .populate("schedules")     // ✅ Add this
+      .populate({
+        path: "branches",
+        populate: { path: "walletId", model: "Wallet" },
+      });
 
-    if (!business) return res.status(404).json({ message: "Business not found" });
+    if (!business)
+      return res.status(404).json({ message: "Business not found" });
+
     return res.status(200).json({ success: true, data: business });
   } catch (error) {
     console.error("getBusinessById error:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 exports.getBusinesses = async (req, res) => {
   try {
@@ -360,15 +388,16 @@ exports.deleteBusiness = async (req, res) => {
   }
 };
 
+
 exports.toggleStatus = async (req, res) => {
   try {
     const { type, id } = req.params; // type = business OR branch
-    const vendorId = req.user && req.user.id ? req.user.id : req.body.vendorId;
+    const vendorId = req.user?._id || req.body.vendorId;
 
     let record, modelName;
 
     if (type === "business") {
-      record = await VendorBusiness.findById(id);
+      record = await Business.findById(id);   // ✅ FIXED
       modelName = "Business";
     } else if (type === "branch") {
       record = await Branch.findById(id).populate("businessId");
@@ -390,14 +419,14 @@ exports.toggleStatus = async (req, res) => {
     }
 
     // ✅ Toggle status
-    record.status = !record.status;
+    record.isActive = !record.isActive;
     await record.save();
 
     res.status(200).json({
       success: true,
       type,
-      message: `${modelName} is now ${record.status ? "Active" : "Inactive"}`,
-      status: record.status,
+      message: `${modelName} is now ${record.isActive ? "Active" : "Inactive"}`,
+      status: record.isActive,
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
