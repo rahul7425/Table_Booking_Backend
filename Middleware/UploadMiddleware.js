@@ -22,7 +22,7 @@ const storage = multer.diskStorage({
       case "owner":
         folder = "uploads/owners";
         break;
-            case "blog":  
+      case "blog":  
         folder = "uploads/blogs";
         break;
       default:
@@ -44,16 +44,21 @@ const storage = multer.diskStorage({
   },
 });
 
-// ✅ File filter (optional — to allow only images)
+// ✅ Sudhara Hua File filter (Added AVIF support)
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|webp/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
+    // Added 'avif' to allowed extensions
+    const allowedExts = /jpeg|jpg|png|webp|avif/;
+    
+    // Explicitly checking MIME type for better reliability, including image/avif
+    const allowedMimes = /image\/jpeg|image\/jpg|image\/png|image\/webp|image\/avif/;
+    
+    const extname = allowedExts.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedMimes.test(file.mimetype);
 
   if (mimetype && extname) {
     return cb(null, true);
   } else {
-    cb(new Error("Only image files are allowed!"));
+    cb(new Error("Only image files (JPEG, PNG, WEBP, AVIF) are allowed!"));
   }
 };
 
@@ -61,7 +66,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // max 5 MB
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
 module.exports = upload;
