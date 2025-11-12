@@ -18,8 +18,6 @@ exports.protect = (req, res, next) => {
     res.status(401).json({ message: "Invalid or expired token" });
   }
 };
-
-// Role-based authorization
 exports.authorizeRoles = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {

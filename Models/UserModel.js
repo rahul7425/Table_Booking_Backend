@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { generateRefId } = require("../Utils/generateRefId");
 
 const userSchema = new mongoose.Schema({
   firstName: { type: String },
@@ -6,6 +7,7 @@ const userSchema = new mongoose.Schema({
   email: { type: String, unique: true },
   emailVerified: { type: Boolean, default: false },
   mobile: { type: String, unique: true },
+  referral:{ type:String, default:generateRefId},
   mobileVerified: { type: Boolean, default: false },
   otp: { type: String },
   role: {
@@ -18,6 +20,27 @@ const userSchema = new mongoose.Schema({
   address: { type: String },
   profilePicture: { type: String },
   status: { type: String, enum: ["active", "inactive"], default: "active" },
-}, { timestamps: true });
-
+  currentLocation: {
+    type: {
+        type: String, // Don't forget the "type" field
+        enum: ['Point'],
+        default: 'Point',
+    },
+    coordinates: {
+        type: [Number], // [longitude, latitude]
+        default: [0, 0], // Default to 0,0 or null
+        index: '2dsphere' // 2dsphere index for geospatial queries
+    },
+  },
+},{ timestamps: true,
+    toJSON: { virtuals: true }, 
+    toObject: { virtuals: true }
+ });
+userSchema.virtual('profilePictureUrl').get(function() {
+    if (!this.profilePicture) {
+      return null;
+    }
+    const BASE_URL = process.env.APP_URL || 'http://localhost:3000';
+    return `${BASE_URL}/uploads/${this.profilePicture}`;
+});
 module.exports = mongoose.model("User", userSchema);

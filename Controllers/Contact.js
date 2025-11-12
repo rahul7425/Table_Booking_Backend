@@ -3,7 +3,7 @@ const Contact = require("../Models/ContactModel");
 exports.createContact = async (req, res) => {
   try {
     const { title, description, mail } = req.body;
-    const role = req.user.role; // 🔹 From JWT decoded token
+    const role = req.user.role;
 
     const newContact = await Contact.create({
       title,
