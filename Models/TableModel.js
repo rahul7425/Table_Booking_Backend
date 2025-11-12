@@ -10,7 +10,7 @@ const tableSchema = new mongoose.Schema(
     },
     branchId: {
       type: mongoose.Schema.Types.ObjectId,
-      required: true,
+      required: false,
     },
     category: {
       type: String,

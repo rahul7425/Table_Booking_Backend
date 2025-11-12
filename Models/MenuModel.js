@@ -1,4 +1,3 @@
-// models/MenuItem.js
 const mongoose = require("mongoose");
 
 const menuItemSchema = new mongoose.Schema(
@@ -10,22 +9,35 @@ const menuItemSchema = new mongoose.Schema(
     },
     branchId: {
       type: mongoose.Schema.Types.ObjectId,
+      required: false,
+    },
+    category: {
+      type: String,
+      required: true, // e.g. "Food", "Drinks"
+    },
+    subCategory: {
+      type: String,
+      required: true, // e.g. "Veg", "Non-Veg" or "Bottle", "Single Peg"
+    },
+    name: {
+      type: String,
       required: true,
     },
-    categoryId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Category",
-      required: true,
-    },
-    name: { type: String, required: true },
     description: String,
-    price: { type: Number, required: true },
+    price: {
+      type: Number,
+      required: true,
+    },
     image: String,
-    isAvailable: { type: Boolean, default: true },
+    tag: {
+      type: String, // e.g. "Roti", "Sabji", "Snacks"
+    },
+    isAvailable: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true }
 );
 
-// ❌ Wrong: export default ...
-// ✅ Correct:
 module.exports = mongoose.model("MenuItem", menuItemSchema);

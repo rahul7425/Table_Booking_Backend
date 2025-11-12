@@ -1,0 +1,124 @@
+const Review = require("../Models/ReviewModel");
+
+// ✅ 1. Create Review (Business + Optional FoodItem)
+exports.createReview = async (req, res) => {
+    try {
+        const { businessId, foodItemId, rating, review } = req.body;
+        // console.log(req.body);
+
+        const newReview = await Review.create({
+            userId: req.user._id || req.user.id,
+            businessId,
+            foodItemId: foodItemId || null,
+            rating,
+            review,
+        });
+
+
+        res.status(201).json({
+            success: true,
+            message: "Review added successfully",
+            review: newReview,
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// ✅ 2. Get all reviews by Business ID + Average Rating
+exports.getReviewsByBusiness = async (req, res) => {
+    try {
+        const businessId = req.params.id;
+
+        const reviews = await Review.find({ businessId })
+            .populate("userId", "name email")
+            .sort({ createdAt: -1 });
+
+        // Calculate Average Rating 
+        const avgRating =
+            reviews.length > 0
+                ? reviews.reduce((acc, cur) => acc + cur.rating, 0) / reviews.length
+                : 0;
+
+        res.status(200).json({
+            success: true,
+            totalReviews: reviews.length,
+            averageRating: avgRating.toFixed(1),
+            reviews,
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// ✅ 3. Get Top 5 Popular Businesses (Based on Most Reviews)
+exports.getTopBusinesses = async (req, res) => {
+    try {
+        const top = await Review.aggregate([
+            {
+                $group: {
+                    _id: "$businessId",
+                    totalReviews: { $sum: 1 },
+                    avgRating: { $avg: "$rating" },
+                },
+            },
+            { $sort: { totalReviews: -1, avgRating: -1 } },
+            { $limit: 5 },
+        ]);
+
+        res.status(200).json({
+            success: true,
+            topBusinesses: top,
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// ✅ Update Review
+exports.updateReview = async (req, res) => {
+  try {
+    const reviewId = req.params.id;
+
+    const review = await Review.findOneAndUpdate(
+      { _id: reviewId, userId: req.user._id },
+      req.body,
+      { new: true }
+    );
+
+    if (!review) {
+      return res.status(404).json({ message: "Review not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Review updated successfully",
+      review,
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+// ✅ Delete Review
+exports.deleteReview = async (req, res) => {
+    try {
+        const review = await Review.findOneAndDelete({
+            _id: req.params.id,
+            userId: req.user._id,
+        });
+
+        if (!review) {
+            return res.status(404).json({ message: "Review not found" });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Review deleted successfully",
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};

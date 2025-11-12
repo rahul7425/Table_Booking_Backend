@@ -6,7 +6,13 @@ exports.protect = (req, res, next) => {
     if (!token) return res.status(401).json({ message: "No token provided" });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    // req.user = decoded;
+
+    // ✅ Fix: Normalize user ID (id or _id)
+    req.user = {
+      _id: decoded.id || decoded._id,
+      role: decoded.role
+    };
     next();
   } catch (error) {
     res.status(401).json({ message: "Invalid or expired token" });
