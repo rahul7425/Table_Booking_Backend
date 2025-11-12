@@ -2,6 +2,15 @@ const mongoose = require("mongoose");
 
 const categorySchema = new mongoose.Schema(
   {
+    businessId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "VendorBusiness",
+      required: true,
+    },
+    branchId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: false,
+    },
     name: {
       type: String,
       required: true,

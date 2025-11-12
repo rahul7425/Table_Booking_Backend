@@ -38,7 +38,7 @@ router.put(
 );
 
 // Get business by id
-router.get("/:businessId", protect, getBusinessById);
+router.get("/:businessId", getBusinessById);
 
 // Get businesses (filter via body vendorId etc)
 router.post("/list", protect, getBusinesses);
