@@ -49,4 +49,7 @@ const itemSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Item", itemSchema);
+module.exports = {
+    Item: mongoose.model("Item", itemSchema), // Mongoose Model को 'Item' नाम से
+    itemSchema: itemSchema // ✅ Raw Schema को भी एक्सपोर्ट करें
+};
