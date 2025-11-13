@@ -6,6 +6,9 @@ const { updateUserLocation } = require('../Utils/locationUtils');
 const EMAIL_API = "https://api.7uniqueverfiy.com/api/verify/email_checker_v1";
 const MOBILE_API = "https://api.7uniqueverfiy.com/api/verify/mobile_operator";
 
+const Referral = require("../Models/ReferralModel");
+const Setting = require("../Models/SettingModel");
+
 
 exports.verifyMobile = async (req, res) => {
   try {
@@ -477,7 +480,6 @@ exports.getUserById = async (req, res) => {
 };
 
 // Ensure User model is imported
-
 exports.updateUserProfile = async (req, res) => { 
     if (!req.user || !req.user.id) {
         return res.status(401).json({ success: false, message: "Unauthorized. Please ensure a valid token is provided." });
@@ -554,4 +556,186 @@ exports.updateUserProfile = async (req, res) => {
         console.error("🔴 Profile Update Error:", error.message);
         res.status(500).json({ success: false, error: "Failed to update profile." });
     }
+};
+
+
+
+
+// *****//
+// blow Referral controllers
+// *****//
+
+// 🔹 Apply Referral Code (when new user signs up or logs in)
+exports.applyReferralCode = async (req, res) => {
+  try {
+    const { userId, referralCode } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.referredBy)
+      return res.status(400).json({ message: "Referral code already used" });
+
+    const referrer = await User.findOne({ referral: referralCode });
+    if (!referrer) return res.status(404).json({ message: "Invalid referral code" });
+
+    
+
+    // ✅ Prevent same mobile/email from using another referral again
+    const existingReferral = await Referral.findOne({
+      referredUser: user._id,
+    });
+    if (existingReferral) {
+      return res.status(400).json({ message: "Referral already exists for this user" });
+    }
+
+    // ✅ Get reward dynamically or use default (100)
+    let reward = 100;
+    if (Setting) {
+      const setting = await Setting.findOne({ key: "referralReward" });
+      if (setting) reward = setting.value;
+    }
+
+    // ✅ Create referral record
+    const referral = await Referral.create({
+      referrer: referrer._id,
+      referredUser: user._id,
+      referralCode,
+      rewardAmount: reward,
+    });
+
+    // ✅ Save referredBy field in user
+    user.referredBy = referralCode;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Referral code applied successfully",
+      referral,
+    });
+  } catch (error) {
+    console.error("Referral Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🔹 After First Booking Success → Add Money to Referrer’s Wallet
+exports.updateWalletAfterBooking = async (req, res) => {
+  try {
+    const { userId } = req.body; // user who made the booking
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.firstBookingDone)
+      return res.status(400).json({ message: "Reward already given for first booking" });
+
+    // Find referral record
+    const referral = await Referral.findOne({
+      referredUser: user._id,
+      rewardCredited: false,
+    }).populate("referrer");
+
+    if (!referral) return res.status(400).json({ message: "No referral found or reward already given" });
+
+    // ✅ Credit referrer wallet
+    referral.referrer.walletBalance += referral.rewardAmount;
+    await referral.referrer.save();
+
+    // ✅ Update referral + user status
+    referral.rewardCredited = true;
+    referral.bookingCompleted = true;
+    await referral.save();
+
+    user.firstBookingDone = true;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `₹${referral.rewardAmount} credited to referrer wallet`,
+      referral,
+    });
+  } catch (error) {
+    console.error("Reward Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🔹 Admin: Update Referral Reward
+exports.updateReferralReward = async (req, res) => {
+  try {
+    const { amount } = req.body;
+    if (!amount || isNaN(amount))
+      return res.status(400).json({ message: "Valid reward amount required" });
+
+    const setting = await Setting.findOneAndUpdate(
+      { key: "referralReward" },
+      { value: Number(amount), description: "Reward amount for successful referral" },
+      { new: true, upsert: true }
+    );
+
+    res.json({
+      success: true,
+      message: `Referral reward updated to ₹${amount}`,
+      setting,
+    });
+  } catch (error) {
+    console.error("Admin Update Reward Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🔹 Admin: Get Current Referral Reward
+exports.getReferralReward = async (req, res) => {
+  try {
+    const setting = await Setting.findOne({ key: "referralReward" });
+    const reward = setting ? setting.value : 100;
+    res.json({
+      success: true,
+      reward,
+    });
+  } catch (error) {
+    console.error("Admin Get Reward Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🔹 Admin: Get All Referrals
+exports.getAllReferrals = async (req, res) => {
+  try {
+    const referrals = await Referral.find()
+      .populate("referrer", "firstName lastName email mobile referral")
+      .populate("referredUser", "firstName lastName email mobile referredBy");
+
+    res.json({
+      success: true,
+      count: referrals.length,
+      referrals,
+    });
+  } catch (error) {
+    console.error("Admin Get Referrals Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🔹 Admin: Get Referrals by User ID (either referrer or referred user)
+exports.getReferralsByUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const referrals = await Referral.find({
+      $or: [{ referrer: userId }, { referredUser: userId }],
+    })
+      .populate("referrer", "firstName lastName email mobile referral")
+      .populate("referredUser", "firstName lastName email mobile referredBy");
+
+    res.json({
+      success: true,
+      count: referrals.length,
+      referrals,
+    });
+  } catch (error) {
+    console.error("Admin Get User Referrals Error:", error);
+    res.status(500).json({ error: error.message });
+  }
 };
