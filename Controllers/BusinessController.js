@@ -1,8 +1,7 @@
-// controllers/businessController.js
 const Business = require("../Models/BusinessModel");
 const Branch = require("../Models/BranchModel");
 const Wallet = require("../Models/WalletModel");
-const Commission = require("../Models/CommissionModel"); // your commission model path
+const Commission = require("../Models/CommissionModel");
 const MenuItem = require("../Models/MenuModel");
 const Table = require("../Models/TableModel");
 const Schedule = require("../Models/ScheduleModel");
