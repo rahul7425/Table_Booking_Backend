@@ -5,6 +5,7 @@ const upload = require("../Middleware/UploadMiddleware");
 const { protect } = require("../Middleware/AuthMiddleware");
 const { 
   createBusiness, 
+  updateCommission,
   addBranch, 
   updateBusiness, 
   getBusinessById, 
@@ -20,6 +21,9 @@ router.post(
   upload.array("images", 10), // send files with key 'images'
   createBusiness
 );
+
+router.put("/commission/update", protect, updateCommission);
+
 
 // Add branch to business (upload branch images with fieldname 'images')
 router.post(

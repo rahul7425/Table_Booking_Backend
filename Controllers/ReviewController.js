@@ -1,28 +1,50 @@
 const Review = require("../Models/ReviewModel");
+const Business = require("../Models/BusinessModel");
 
-// ✅ 1. Create Review (Business + Optional FoodItem)
+
+// ✅ 1. Create Review (and Update Business Rating)
 exports.createReview = async (req, res) => {
-    try {
-        const { businessId, foodItemId, rating, review } = req.body;
-        // console.log(req.body);
+  try {
+    const { businessId, foodItemId, rating, review } = req.body;
 
-        const newReview = await Review.create({
-            userId: req.user._id || req.user.id,
-            businessId,
-            foodItemId: foodItemId || null,
-            rating,
-            review,
-        });
-
-
-        res.status(201).json({
-            success: true,
-            message: "Review added successfully",
-            review: newReview,
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    if (!businessId || !rating || !review) {
+      return res.status(400).json({ success: false, message: "All fields are required" });
     }
+
+    // Step 1️⃣ - Create Review
+    const newReview = await Review.create({
+      userId: req.user._id || req.user.id,
+      businessId,
+      foodItemId: foodItemId || null,
+      rating,
+      review,
+    });
+
+    // Step 2️⃣ - Push review ID to Business
+    await Business.findByIdAndUpdate(
+      businessId,
+      { $push: { reviews: newReview._id } },
+      { new: true }
+    );
+
+    // Step 3️⃣ - Recalculate Business averageRating & totalRatings
+    const allReviews = await Review.find({ businessId });
+    const totalRatings = allReviews.length;
+    const avgRating = allReviews.reduce((acc, curr) => acc + curr.rating, 0) / totalRatings;
+
+    await Business.findByIdAndUpdate(businessId, {
+      averageRating: avgRating.toFixed(1),
+      totalRatings,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Review added successfully",
+      review: newReview,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 };
 
 // ✅ 2. Get all reviews by Business ID + Average Rating

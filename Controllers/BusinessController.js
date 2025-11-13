@@ -84,11 +84,29 @@ exports.createBusiness = async (req, res) => {
     await business.save();
 
     // Ensure vendor has a commission record (default 50%) — admin can change later
-    await Commission.findOneAndUpdate(
-      { vendorId },
-      { $setOnInsert: { commissionPercentage: business.defaultCommissionPercentage, vendorId } },
+    // await Commission.findOneAndUpdate(
+    //   { vendorId },
+    //   { $setOnInsert: { commissionPercentage: business.defaultCommissionPercentage, vendorId } },
+    //   { upsert: true, new: true }
+    // );
+
+    // Ensure business has its own commission record (default 50%)
+    const commission = await Commission.findOneAndUpdate(
+      { businessId: business._id },
+      {
+        $setOnInsert: {
+          commissionPercentage: business.defaultCommissionPercentage,
+          businessId: business._id,
+          vendorId: vendorId,
+        },
+      },
       { upsert: true, new: true }
     );
+
+    // Link commission to business
+    business.commissionId = commission._id;
+    await business.save();
+
 
     // If branches provided in creation payload, create them
     if (branches && Array.isArray(branches) && branches.length) {
@@ -108,7 +126,7 @@ exports.createBusiness = async (req, res) => {
           address: brAddress || {},
           isActive: typeof brRaw.isActive === "boolean" ? brRaw.isActive : true,
           createdBy: vendorId,
-        });
+        });  
 
         await branchDoc.save();
 
@@ -132,6 +150,60 @@ exports.createBusiness = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// default commission ko update karne ka controller
+exports.updateCommission = async (req, res) => {
+  try {
+    const { businessId, commissionPercentage } = req.body;
+
+    // Validate Input 
+    if (!businessId || commissionPercentage == null) {
+      return res
+        .status(400)
+        .json({ message: "businessId and commissionPercentage are required" });
+    }
+
+    if (commissionPercentage < 0 || commissionPercentage > 100) {
+      return res
+        .status(400)
+        .json({ message: "Commission must be between 0 and 100" });
+    }
+
+    // Find Business
+    const business = await Business.findById(businessId);
+    if (!business) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Business not found" });
+    }
+
+    // Update or Create Commission Record
+    const updatedCommission = await Commission.findOneAndUpdate(
+      { businessId },
+      { commissionPercentage, businessId },
+      { upsert: true, new: true }
+    );
+
+    // Update Business field
+    business.commissionId = updatedCommission._id;
+    business.defaultCommissionPercentage = commissionPercentage; // <--- FIX HERE
+    await business.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Commission updated to ${commissionPercentage}% for business`,
+      data: {
+        businessId,
+        commissionPercentage,
+        commissionRecord: updatedCommission,
+      },
+    });
+  } catch (error) {
+    console.error("updateCommission error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 
 exports.addBranch = async (req, res) => {
   try {
@@ -209,7 +281,7 @@ exports.updateBusiness = async (req, res) => {
     }
 
     if (updateData.address && typeof updateData.address === "string") {
-      try { updateData.address = JSON.parse(updateData.address); } catch (e) {}
+      try { updateData.address = JSON.parse(updateData.address); } catch (e) { }
     }
 
     const updated = await Business.findByIdAndUpdate(businessId, updateData, { new: true });
@@ -220,24 +292,6 @@ exports.updateBusiness = async (req, res) => {
   }
 };
 
-// exports.getBusinessById = async (req, res) => {
-//   try {
-//     const { businessId } = req.params;
-//     if (!businessId) return res.status(400).json({ message: "businessId param required" });
-
-//     const business = await Business.findById(businessId).populate({
-//       path: "branches",
-//       populate: { path: "walletId", model: "Wallet" },
-//     });
-
-//     if (!business) return res.status(404).json({ message: "Business not found" });
-//     return res.status(200).json({ success: true, data: business });
-//   } catch (error) {
-//     console.error("getBusinessById error:", error);
-//     return res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
 
 exports.getBusinessById = async (req, res) => {
   try {
@@ -247,12 +301,19 @@ exports.getBusinessById = async (req, res) => {
 
     const business = await Business.findById(businessId)
       .populate("categories")
-      .populate("menuItems")     // ✅ Add this
-      .populate("tables")        // ✅ Add this
-      .populate("schedules")     // ✅ Add this
+      .populate("menuItems")
+      .populate("tables")
+      .populate("schedules")
       .populate({
         path: "branches",
         populate: { path: "walletId", model: "Wallet" },
+      })
+      .populate({
+        path: "reviews", // 👈 Add this
+        populate: {
+          path: "userId", // 👈 Assuming each review has userId
+          select: "name email profileImage", // optional — only select needed fields
+        },
       });
 
     if (!business)
@@ -304,35 +365,52 @@ exports.getBusinesses = async (req, res) => {
     if (pincode) filter["address.pincode"] = pincode;
 
     // 🔹 Rating Filter (1–5 stars)
+    // if (topRated) {
+    //   filter.rating = { $gte: 4 }; // Example: 4+ stars
+    // }
+
+    // 🔹 Rating Filter (Top Rated Businesses)
     if (topRated) {
-      filter.rating = { $gte: 4 }; // Example: 4+ stars
+      filter.averageRating = { $gte: 2 }; // ✅ Correct field
     }
 
-    // 🔹 Price Range Filter
-    if (minRate || maxRate) {
-      filter["menu.price"] = {};
-      if (minRate) filter["menu.price"].$gte = Number(minRate);
-      if (maxRate) filter["menu.price"].$lte = Number(maxRate);
-    }
 
-    // 🔹 Search by Menu Item Name or Category
+
+    // 🔹 Menu Filters (Price Range + Item Name + Category)
     let menuBusinessIds = [];
-    if (menuItemName || category) {
+
+    if (minRate || maxRate || menuItemName || category) {
       const menuFilter = {};
 
+      // 🔹 Price Filter
+      if (minRate || maxRate) {
+        menuFilter.price = {};
+        if (minRate) menuFilter.price.$gte = Number(minRate);
+        if (maxRate) menuFilter.price.$lte = Number(maxRate);
+      }
+
+      // 🔹 Menu Item Name Filter
       if (menuItemName)
         menuFilter.name = { $regex: menuItemName, $options: "i" };
+
+      // 🔹 Category Filter
       if (category)
         menuFilter.category = { $regex: category, $options: "i" };
 
-      const menus = await Menu.find(menuFilter).select("businessId");
+      // 🔹 Find Matching Menu Items
+      const menus = await MenuItem.find(menuFilter).select("businessId");
       menuBusinessIds = menus.map((m) => m.businessId);
 
-      if (menuBusinessIds.length > 0)
-        filter._id = { $in: menuBusinessIds };
-      else
+      // 🔹 If no menus match, return empty response early
+      if (menuBusinessIds.length === 0) {
         return res.status(200).json({ success: true, count: 0, data: [] });
+      }
+
+      // 🔹 Apply Business ID Filter
+      filter._id = { $in: menuBusinessIds };
     }
+
+
 
     // 🔹 Nearby Filter (example using city or lat/lng if available)
     if (nearby && nearby.city) {
@@ -343,7 +421,22 @@ exports.getBusinesses = async (req, res) => {
     const businesses = await Business.find(filter)
       .sort(topRated ? { rating: -1 } : { createdAt: -1 })
       .skip((page - 1) * limit)
-      .limit(Number(limit));
+      .limit(Number(limit))
+      .populate("categories")
+      .populate("menuItems")
+      .populate("tables")
+      .populate("schedules")
+      .populate({
+        path: "branches",
+        populate: { path: "walletId", model: "Wallet" },
+      })
+      .populate({
+        path: "reviews",
+        populate: {
+          path: "userId",
+          select: "name email profileImage",
+        },
+      });
 
     const count = await Business.countDocuments(filter);
 
