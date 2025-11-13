@@ -1,30 +1,59 @@
 const mongoose = require("mongoose");
-
+const { itemSchema } = require("./ItemModel"); 
 const bookingSchema = new mongoose.Schema(
   {
-    userId: {
+    business_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Business",
+      required: true,
+    },
+
+    table_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Table",
+      required: true,
+    },
+
+    user_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-    vendorId: {
+
+    schedule_id: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
+      ref: "Schedule",
     },
-    tableNumber: { type: String },
-    totalAmount: { type: Number, default: 0 },
-    bookingDate: { type: Date, default: Date.now },
+
+    items_ordered: [
+      {
+        item_details: itemSchema, 
+        quantity: {
+          type: Number,
+          required: true,
+          min: 1,
+        },
+        selected_variant_id: {
+            type: String, 
+            required: true,
+        }
+      },
+    ],
+
     status: {
       type: String,
-      enum: ["pending", "completed", "cancelled"],
+      enum: ["pending", "confirmed", "completed", "cancelled"],
       default: "pending",
     },
+    totalAmount: { type: Number, default: 0 },
+    
     paymentStatus: {
       type: String,
       enum: ["unpaid", "paid", "refunded"],
       default: "unpaid",
     },
+    
+    bookingDate: { type: Date, default: Date.now },
   },
   { timestamps: true }
 );
