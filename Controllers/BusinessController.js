@@ -57,7 +57,8 @@ exports.createBusiness = async (req, res) => {
       address, // can be object or stringified JSON
       isActive = true,
       defaultCommissionPercentage,
-      branches // optional list of branch objects
+      branches,
+      requestStatus = "pending", // 👈 new field
     } = req.body;
 
     const images = [];
@@ -78,17 +79,12 @@ exports.createBusiness = async (req, res) => {
       images,
       address: parsedAddress,
       isActive,
+      requestStatus, // 👈 include here
       defaultCommissionPercentage: defaultCommissionPercentage || 50,
     });
 
     await business.save();
 
-    // Ensure vendor has a commission record (default 50%) — admin can change later
-    // await Commission.findOneAndUpdate(
-    //   { vendorId },
-    //   { $setOnInsert: { commissionPercentage: business.defaultCommissionPercentage, vendorId } },
-    //   { upsert: true, new: true }
-    // );
 
     // Ensure business has its own commission record (default 50%)
     const commission = await Commission.findOneAndUpdate(
@@ -344,6 +340,7 @@ exports.getBusinesses = async (req, res) => {
       nearby,
       topRated,
       activeOnly,
+      requestStatus, // 👈 new filter
     } = req.body;
 
     let filter = {};
@@ -374,7 +371,10 @@ exports.getBusinesses = async (req, res) => {
       filter.averageRating = { $gte: 2 }; // ✅ Correct field
     }
 
-
+    // ✅ New Filter
+    if (requestStatus) {
+      filter.requestStatus = requestStatus; // e.g. pending / approved / denied
+    }
 
     // 🔹 Menu Filters (Price Range + Item Name + Category)
     let menuBusinessIds = [];
@@ -523,5 +523,32 @@ exports.toggleStatus = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+
+exports.updateBusinessStatus = async (req, res) => {
+  try {
+    const { businessId } = req.params;
+    const { status } = req.body; // expected: "approved" | "pending" | "denied"
+
+    if (!["approved", "pending", "denied"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status value" });
+    }
+
+    const business = await Business.findById(businessId);
+    if (!business) return res.status(404).json({ message: "Business not found" });
+
+    business.requestStatus = status;
+    await business.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Business status updated to ${status}`,
+      data: business,
+    });
+  } catch (error) {
+    console.error("updateBusinessStatus error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

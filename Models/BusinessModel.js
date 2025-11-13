@@ -60,6 +60,12 @@ const businessSchema = new mongoose.Schema(
         default: [0, 0],
       },
     },
+       // ⭐ NEW FIELD
+    requestStatus: {
+      type: String,
+      enum: ["pending", "approved", "denied"],
+      default: "pending",
+    },
   },
   { timestamps: true }
 );
