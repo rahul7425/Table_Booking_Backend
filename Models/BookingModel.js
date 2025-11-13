@@ -25,33 +25,18 @@ const bookingSchema = new mongoose.Schema(
       ref: "Schedule",
     },
 
-    food_items: [
+    items_ordered: [
       {
-        food_id: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Food",
-          required: true,
-        },
+        item_details: itemSchema, 
         quantity: {
           type: Number,
           required: true,
           min: 1,
         },
-      },
-    ],
-
-    drink_items: [
-      {
-        drink_id: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Drink",
-          required: true,
-        },
-        quantity: {
-          type: Number,
-          required: true,
-          min: 1,
-        },
+        selected_variant_id: {
+            type: String, 
+            required: true,
+        }
       },
     ],
 
