@@ -14,6 +14,12 @@ const {
   getAllUsers,
   updateUserProfile,
   getUserById,
+  applyReferralCode,
+  updateWalletAfterBooking,
+  updateReferralReward,
+  getReferralReward,
+  getAllReferrals,
+  getReferralsByUser,
 } = require("../Controllers/User");
 
 router.post("/register", registerUser);
@@ -38,4 +44,15 @@ router.post('/profile',
     upload.single('profilePicture'), // 'profilePicture' aapki form-data key hai
     updateUserProfile
 );
+
+// Referral
+router.post("/apply-referral", protect, applyReferralCode);
+router.post("/referral/reward-after-booking", protect, updateWalletAfterBooking);
+
+// 🔹 Admin Referral Control
+router.post("/admin/update-reward", protect, authorizeRoles("admin"), updateReferralReward);
+router.get("/admin/get-reward", protect, authorizeRoles("admin"), getReferralReward);
+router.get("/admin/referrals", protect, authorizeRoles("admin"), getAllReferrals);
+router.get("/admin/referrals/:userId", protect, authorizeRoles("admin"), getReferralsByUser);
+
 module.exports = router;
