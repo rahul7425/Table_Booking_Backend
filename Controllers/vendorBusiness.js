@@ -4,7 +4,7 @@ const Table = require("../Models/TableModel");
 const Schedule = require("../Models/ScheduleModel");
 const Business = require("../Models/BusinessModel");
 
-const models = { Category, Item, Table, Schedule };
+const models = { Category, Item: Item.Item, Table, Schedule };
 
 const businessFieldMap = {
   Category: "categories",
@@ -21,6 +21,7 @@ const getModel = (modelName) => {
 
 // ✅ CREATE
 const createBusinessData = async (req, res) => {
+  
   try {
     const { model } = req.body;
     const SelectedModel = getModel(model);
@@ -59,7 +60,6 @@ const createBusinessData = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // ✅ UPDATE
 const updateBusinessData = async (req, res) => {
   try {

@@ -1,6 +1,7 @@
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
 const User = require("../Models/UserModel");
+const Wallet = require("../Models/WalletModel");
 const { generateRefId } = require("../Utils/generateRefId");
 const { updateUserLocation } = require('../Utils/locationUtils');
 const EMAIL_API = "https://api.7uniqueverfiy.com/api/verify/email_checker_v1";
@@ -86,7 +87,6 @@ exports.verifyMobile = async (req, res) => {
     });
   }
 };
-
 
 exports.verifyMail = async (req, res) => {
   try {
@@ -344,17 +344,11 @@ exports.verifyOtpAndLogin = async (req, res) => {
 
         if (!user) return res.status(404).json({ message: "User not found" });
         if (user.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
-
-        // --- 1. Referral Protection ---
-        // If the referral field is empty/null, set it using the generateRefId utility.
-        // NOTE: If your schema uses 'default: generateRefId', this is usually handled 
-        // on creation. This check ensures it's set if somehow missed or if you 
-        // are dealing with legacy data where the field might be undefined.
+        
         if (!user.referral) {
             user.referral = generateRefId(); 
         }
 
-        // Clear OTP and Save (this also saves the referral if it was updated above)
         user.otp = null;
         await user.save();
 
@@ -363,11 +357,30 @@ exports.verifyOtpAndLogin = async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: "7d" }
         );
+        try {
+            const existingWallet = await Wallet.findOne({ userId: user._id });
 
-        // --- 2. Role-Based Location Update ---
+            if (!existingWallet) {
+                const newWallet = new Wallet({
+                    userId: user._id,
+                    balance: 0,
+                });
+                await newWallet.save();
+                console.log(`✅ New Wallet created for user ID: ${user._id}`);
+            } else {
+                 console.log(`Wallet already exists for user ID: ${user._id}. Skipping creation.`);
+            }
+        } catch (walletError) {
+             console.error("Warning: Failed to create or check user wallet:", walletError.message);
+             // यह एक चेतावनी है; लॉगिन प्रक्रिया को जारी रहने दें।
+        }
+        // ---------------------------------------------
+
+
+        // --- 2. Role-Based Location Update (Existing Logic) ---
+        // ... (यह भाग अपरिवर्तित है)
         if (user.role === 'user' && latitude !== undefined && longitude !== undefined) {
             try {
-                // Since this runs only for 'user' role, we can proceed with coordinates update.
                 const lat = Number(latitude);
                 const lon = Number(longitude);
 
@@ -384,6 +397,7 @@ exports.verifyOtpAndLogin = async (req, res) => {
         } else {
             console.log(`User ${user._id} logged in, but location data missing.`);
         }
+        // ---------------------------------------------
 
         // --- Final Response ---
         res.json({

@@ -20,7 +20,8 @@ const userRoutes = require("./Routes/UserRoute");
 const adminRoutes = require("./Routes/AdminRoute");
 const businessRoutes = require("./Routes/BusinessRoute");
 const detailRoutes = require("./Routes/Business");
-// const bookingRoutes = require("./routes/BookingRoutes");
+const bookingRoutes = require("./Routes/BookingRoute");
+
 // const orderRoutes = require("./routes/OrderRoutes");
 
 const app = express();
@@ -44,7 +45,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/business", businessRoutes);
 app.use("/api/details", detailRoutes);
 
-// app.use("/api/bookings", bookingRoutes);
+app.use("/api/bookings", bookingRoutes);
 // app.use("/api/orders", orderRoutes);
 
 app.use("/api/blogs", blogRoutes);

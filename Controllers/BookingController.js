@@ -1,11 +1,13 @@
 // BookingController.js
 
-const Booking = require('../Models/BookingModel'); // सुनिश्चित करें कि path सही हो
-const User = require('../Models/UserModel');     // सुनिश्चित करें कि path सही हो
+const Booking = require('../Models/BookingModel');
+const User = require('../Models/UserModel');
+const Table = require('../Models/TableModel'); 
+const ItemModel = require('../Models/ItemModel'); 
+const Item = ItemModel.Item;
 const { deductFromWallet, refundToWallet, transferCommission } = require('./WalletController');
-const { sendBookingConfirmation } = require('./NotificationService');
+const { sendBookingConfirmation } = require('./services/NotificationService');
 
-// Static minimum table price for mandatory check (example value)
 const MIN_TABLE_PRICE_FOR_CHECK = 2000;
 const CANCELLATION_FEE_PERCENT = 0.15; // 15%
 
@@ -16,61 +18,107 @@ const calculateTotalAmount = (tablePrice, items) => {
     return tablePrice + itemsTotal;
 };
 
-// --- Main Booking Logic ---
+
 exports.createBooking = async (req, res) => {
-    const { user_id, table_id, schedule_id, items_ordered = [], paymentMethod } = req.body;
-    
+    const user_id = req.user._id;
+    const { table_id, schedule_id, items_ordered = [], paymentMethod } = req.body;   
+
     try {
         const user = await User.findById(user_id);
-        if (!user) return res.status(404).send({ message: "User not found." });
+        console.log("user = ", user);
 
-        // Step 1.2: Calculate total amount (Assuming a fixed table price for demo)
-        const tablePrice = 500; // Example table price
-        const totalAmount = calculateTotalAmount(tablePrice, items_ordered);
+        if (!user) return res.status(401).send({ message: "Authenticated user not found." });
+
+        const table = await Table.findById(table_id);
+        if (!table) return res.status(404).send({ message: "Table not found." });
+        
+        const tablePrice = (typeof table.price === 'number' && !isNaN(table.price)) ? table.price : 0; 
+
+        let validatedTotalAmount = tablePrice; // Table price से शुरुआत
+        let finalItemsOrdered = [];
+
+        for (const orderItem of items_ordered) {
+            const { itemId, quantity: quantityStr, selected_variant_id } = orderItem;
+            const quantity = Number(quantityStr); // स्ट्रिंग को नंबर में बदलें
+            
+            // Quantity/ID Validation
+            if (!itemId || isNaN(quantity) || quantity < 1 || !selected_variant_id) {
+                return res.status(400).send({ message: "Invalid quantity or missing item details." });
+            }
+            
+            const itemFromDB = await Item.findById(itemId);
+            if (!itemFromDB) {
+                return res.status(404).send({ message: `Item not found for ID: ${itemId}` });
+            }
+
+            const selectedVariant = itemFromDB.variants.find(
+                v => v._id.toString() === selected_variant_id
+            );
+
+            // Price/Variant Validation
+            if (!selectedVariant || !selectedVariant.isAvailable || typeof selectedVariant.price !== 'number' || isNaN(selectedVariant.price)) {
+                return res.status(400).send({ message: `Selected variant is unavailable or its price is invalid.` });
+            }
+
+            const itemPrice = selectedVariant.price * quantity;
+            validatedTotalAmount += itemPrice; 
+
+            finalItemsOrdered.push({
+                itemId: itemFromDB._id,
+                quantity: quantity,
+                selected_variant_id: selectedVariant._id
+            });
+        }
+        
+        const totalAmount = validatedTotalAmount; 
+        
+        // NaN Check
+        if (isNaN(totalAmount)) {
+            console.error("Critical Error: Final totalAmount is NaN after calculation.");
+            return res.status(500).send({ message: "Internal error: Failed to calculate total amount." });
+        }
         
         let onlinePaymentAmount = 0;
-
-        // Step 1.3 & 1.4: Wallet/Payment Check & Decision
-        if (tablePrice >= MIN_TABLE_PRICE_FOR_CHECK && user.walletBalance < MIN_TABLE_PRICE_FOR_CHECK) {
-            return res.status(400).send({ message: "Minimum balance of 2000 required for this table. Please topup." });
+        if (user.walletBalance < MIN_TABLE_PRICE_FOR_CHECK) {
+            return res.status(400).send({ 
+                message: `Minimum balance of ${MIN_TABLE_PRICE_FOR_CHECK} is required in your wallet for any booking. Please topup.` 
+            });
         }
-
+        
+        // 4. Payment Decision
         if (paymentMethod === 'online') {
-            onlinePaymentAmount = totalAmount;
+            onlinePaymentAmount = totalAmount; 
         } else if (paymentMethod === 'cash') {
-            onlinePaymentAmount = tablePrice; // Cash payment requires table price online
+            onlinePaymentAmount = tablePrice; 
         } else {
             return res.status(400).send({ message: "Invalid payment method." });
         }
 
-        // Step 1.5: Final Balance Check
+        // 5. Final Balance Check (यह सुनिश्चित करता है कि पेमेंट के लिए आवश्यक राशि वॉलेट में हो)
         if (user.walletBalance < onlinePaymentAmount) {
             return res.status(400).send({ message: `Insufficient balance for online payment of ${onlinePaymentAmount}.` });
         }
 
-        // Step 2.1: Deduct funds (Admin's Escrow Wallet)
+        // 6. Deduct funds
         const deductionResult = await deductFromWallet(user_id, onlinePaymentAmount, "BOOKING_ADVANCE");
         if (!deductionResult.success) {
             return res.status(500).send({ message: "Payment deduction failed." });
         }
 
-        // Step 2.2: Create Booking Document
+        // 7. Create Booking Document
         const booking = new Booking({
             user_id,
             table_id,
             schedule_id,
-            business_id: deductionResult.adminWalletId, // Use admin ID as business for escrow in this flow
-            items_ordered,
-            totalAmount,
-            paymentStatus: onlinePaymentAmount > 0 ? "paid" : "unpaid",
+            items_ordered: finalItemsOrdered, 
+            totalAmount, 
+            paymentStatus: onlinePaymentAmount > 0 ? "paid" : "unpaid", 
             status: "pending",
         });
         await booking.save();
         
-        // Step 2.3: Send Email
+        // 8. Success Response
         await sendBookingConfirmation(user.email, booking._id, "Business Name", table_id);
-
-        // Step 2.4: Success Response
         res.status(201).send({ message: "Booking successful!", bookingId: booking._id });
 
     } catch (error) {
@@ -78,8 +126,6 @@ exports.createBooking = async (req, res) => {
         res.status(500).send({ message: "Server error during booking." });
     }
 };
-
-
 // --- On-Site Check-in (Staff Logic) ---
 exports.staffCheckIn = async (req, res) => {
     const { bookingId } = req.body;
@@ -101,7 +147,6 @@ exports.staffCheckIn = async (req, res) => {
         res.status(500).send({ message: "Error during check-in." });
     }
 };
-
 // --- Offline Item Ordering (Staff Logic) ---
 exports.addOfflineItems = async (req, res) => {
     const { bookingId, newItems } = req.body; // newItems must be in the format of items_ordered array
