@@ -59,7 +59,7 @@ const userSchema = new mongoose.Schema({
   mobile: { type: String, unique: true },
   referral: { type: String, default: generateRefId },
   referredBy: { type: String, default: null }, // Referral code used by this user
-  walletBalance: { type: Number, default: 0 }, // Money from referrals
+  // walletBalance: { type: Number, default: 0 }, // Money from referrals
   firstBookingDone: { type: Boolean, default: false },
   mobileVerified: { type: Boolean, default: false },
   otp: { type: String },

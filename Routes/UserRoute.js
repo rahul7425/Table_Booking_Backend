@@ -41,7 +41,7 @@ router.get("/all", protect, authorizeRoles("admin", "vendor"), getAllUsers);
 // 🔹 Get by ID
 router.get("/:id", protect, authorizeRoles("admin", "vendor"), getUserById);
 router.post('/profile',  
-    upload.single('profilePicture'), // 'profilePicture' aapki form-data key hai
+    upload.single('profilePicture'),
     updateUserProfile
 );
 
