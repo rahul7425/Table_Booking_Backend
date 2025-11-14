@@ -19,4 +19,8 @@ const { topupWallet } = require('../Controllers/WalletController');
 router.post('/wallet/topup', topupWallet);
 
 
+router.put("/bookings/:id/accept", protect, authorizeRoles("vendor"), bookingController.acceptBooking);
+router.put("/bookings/:id/deny", protect, authorizeRoles("vendor"), bookingController.denyBooking);
+
+
 module.exports = router;

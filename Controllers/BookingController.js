@@ -1,5 +1,3 @@
-// BookingController.js
-
 const Booking = require('../Models/BookingModel');
 const User = require('../Models/UserModel');
 const Table = require('../Models/TableModel'); 
@@ -119,6 +117,7 @@ exports.createBooking = async (req, res) => {
             totalAmount, 
             paymentStatus: onlinePaymentAmount > 0 ? "paid" : "unpaid", 
             status: "pending",
+            requestStatus: "pending"
         });
         await booking.save();
         
@@ -223,10 +222,13 @@ exports.billClosure = async (req, res) => {
 
 // --- Cancellation Logic ---
 exports.cancelBooking = async (req, res) => {
-    const { bookingId } = req.body;
-    try {
-        const booking = await Booking.findById(bookingId);
-        if (!booking) return res.status(404).send({ message: "Booking not found." });
+  try {
+    const userId = req.user._id;
+    const bookingId = req.params.id;
+
+    const booking = await Booking.findById(bookingId);
+
+    if (!booking) return res.status(404).json({ message: "Booking not found" });
 
         // Step 4.1: Status Check (Must be 'pending')
         if (booking.status !== 'pending') {
