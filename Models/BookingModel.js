@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { itemSchema } = require("./ItemModel"); 
+const { itemSchema } = require("./ItemModel");
 const bookingSchema = new mongoose.Schema(
   {
     table_id: {
@@ -19,25 +19,37 @@ const bookingSchema = new mongoose.Schema(
       ref: "Schedule",
     },
 
-   items_ordered: [
-      {
+    items_ordered: [
+      {
         // 🔥 FIX: item_details को हटाकर IDs और Quantity को सीधे यहाँ रखें
-        itemId: { 
-            type: mongoose.Schema.Types.ObjectId, 
-            ref: "Item", // आइटम मॉडल का रेफरेंस 
-            required: true 
-        }, 
-        quantity: {
-          type: Number,
-          required: true,
-          min: 1,
-        },
-        selected_variant_id: {
-            type: String, // Variant ID स्ट्रिंग हो सकती है, यदि वह Sub-document ID है
-            required: true,
-        }
-      },
-    ],
+        itemId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Item", // आइटम मॉडल का रेफरेंस 
+          required: true
+        },
+        quantity: {
+          type: Number,
+          required: true,
+          min: 1,
+        },
+        selected_variant_id: {
+          type: String, // Variant ID स्ट्रिंग हो सकती है, यदि वह Sub-document ID है
+          required: true,
+        }
+      },
+    ],
+
+    requestStatus: {
+      type: String,
+      enum: ["pending", "accepted", "denied"],
+      default: "pending",
+    },
+
+     refundMode: {
+      type: String,
+      enum: ["full", "partial"],
+      default: "partial"
+    },
 
     status: {
       type: String,
@@ -45,13 +57,13 @@ const bookingSchema = new mongoose.Schema(
       default: "pending",
     },
     totalAmount: { type: Number, default: 0 },
-    
+
     paymentStatus: {
       type: String,
       enum: ["unpaid", "paid", "refunded"],
       default: "unpaid",
     },
-    
+
     bookingDate: { type: Date, default: Date.now },
   },
   { timestamps: true }
