@@ -75,8 +75,7 @@ exports.transferCommission = async (businessId, amount, transactionType) => {
 
 // --- User Topup (Admin Escrow) ---
 exports.topupWallet = async (req, res) => {
-    // This is where real payment gateway logic (Stripe/Razorpay) would go.
-    // After successful payment:
+    
     try {
         const { userId, amount } = req.body;
         const user = await User.findById(userId);

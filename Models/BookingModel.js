@@ -2,12 +2,6 @@ const mongoose = require("mongoose");
 const { itemSchema } = require("./ItemModel"); 
 const bookingSchema = new mongoose.Schema(
   {
-    business_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Business",
-      required: true,
-    },
-
     table_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Table",
@@ -25,20 +19,25 @@ const bookingSchema = new mongoose.Schema(
       ref: "Schedule",
     },
 
-    items_ordered: [
-      {
-        item_details: itemSchema, 
-        quantity: {
-          type: Number,
-          required: true,
-          min: 1,
-        },
-        selected_variant_id: {
-            type: String, 
-            required: true,
-        }
-      },
-    ],
+   items_ordered: [
+      {
+        // 🔥 FIX: item_details को हटाकर IDs और Quantity को सीधे यहाँ रखें
+        itemId: { 
+            type: mongoose.Schema.Types.ObjectId, 
+            ref: "Item", // आइटम मॉडल का रेफरेंस 
+            required: true 
+        }, 
+        quantity: {
+          type: Number,
+          required: true,
+          min: 1,
+        },
+        selected_variant_id: {
+            type: String, // Variant ID स्ट्रिंग हो सकती है, यदि वह Sub-document ID है
+            required: true,
+        }
+      },
+    ],
 
     status: {
       type: String,
