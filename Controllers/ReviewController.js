@@ -97,6 +97,25 @@ exports.getTopBusinesses = async (req, res) => {
     }
 };
 
+// ✅ Get All Reviews
+exports.getAllReviews = async (req, res) => {
+  try {
+    const reviews = await Review.find()
+      .populate("userId", "name email")
+      .populate("businessId", "name")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      totalReviews: reviews.length,
+      reviews,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
 // ✅ Update Review
 exports.updateReview = async (req, res) => {
   try {

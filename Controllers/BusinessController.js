@@ -237,11 +237,11 @@ exports.addBranch = async (req, res) => {
     await branch.save();
 
     // create wallet for branch
-    const wallet = new Wallet({ branchId: branch._id, balance: 0 });
-    await wallet.save();
+    // const wallet = new Wallet({ branchId: branch._id, balance: 0 });
+    // await wallet.save();
 
-    branch.walletId = wallet._id;
-    await branch.save();
+    // branch.walletId = wallet._id;
+    // await branch.save();
 
     // add to business
     business.branches.push(branch._id);
@@ -524,7 +524,6 @@ exports.toggleStatus = async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
-
 
 exports.updateBusinessStatus = async (req, res) => {
   try {

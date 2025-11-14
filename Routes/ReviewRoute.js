@@ -6,6 +6,7 @@ const {
     createReview,
     getReviewsByBusiness,
     getTopBusinesses,
+    getAllReviews,
     updateReview,
     deleteReview,
 } = require("../Controllers/ReviewController");
@@ -18,6 +19,10 @@ router.get("/business/:id", getReviewsByBusiness);
 
 // ✅ Get Top 5 Popular Businesses
 router.get("/top/businesses", getTopBusinesses);
+
+// ✅ Get all reviews (admin)
+router.get("/all", getAllReviews);
+
 
 // ✅ Update own review
 router.put("/:id", protect, updateReview);
