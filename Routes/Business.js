@@ -11,7 +11,8 @@ const {
   getBusinessById, 
   getBusinesses, 
   deleteBusiness,
-  toggleStatus
+  toggleStatus,
+  updateBusinessStatus
 } = require("../Controllers/BusinessController");
 
 // Create business (multiple images)
@@ -52,5 +53,8 @@ router.delete("/:businessId", protect, deleteBusiness);
 
 // toggle status
 router.put("/toggle/:type/:id", protect, toggleStatus);
+
+router.put("/status/:businessId", protect, updateBusinessStatus);
+
 
 module.exports = router;
