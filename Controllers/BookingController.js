@@ -1,5 +1,3 @@
-// BookingController.js
-
 const Booking = require('../Models/BookingModel');
 const User = require('../Models/UserModel');
 const Table = require('../Models/TableModel'); 
@@ -114,6 +112,7 @@ exports.createBooking = async (req, res) => {
             totalAmount, 
             paymentStatus: onlinePaymentAmount > 0 ? "paid" : "unpaid", 
             status: "pending",
+            requestStatus: "pending"
         });
         await booking.save();
         
@@ -211,40 +210,125 @@ exports.billClosure = async (req, res) => {
 
 // --- Cancellation Logic ---
 exports.cancelBooking = async (req, res) => {
-    const { bookingId } = req.body;
-    try {
-        const booking = await Booking.findById(bookingId);
-        if (!booking) return res.status(404).send({ message: "Booking not found." });
+  try {
+    const userId = req.user._id;
+    const bookingId = req.params.id;
 
-        // Step 4.1: Status Check (Only before checked-in)
-        if (booking.status !== 'pending') {
-            return res.status(400).send({ message: "Cancellation only allowed before check-in." });
-        }
-        
-        // Get the amount that was originally paid online (if any)
-        const paidAmount = 500; // You should fetch this from the transaction history or booking record
-        
-        if (paidAmount > 0) {
-            // Step 4.2 & 4.3: Calculate Refund
-            const cancellationCharge = paidAmount * CANCELLATION_FEE_PERCENT;
-            const refundAmount = paidAmount - cancellationCharge;
+    const booking = await Booking.findById(bookingId);
 
-            // Step 4.4: Transaction (Admin to User)
-            await refundToWallet(booking.user_id, refundAmount, "BOOKING_CANCELLATION_REFUND");
-            
-            // Step 4.5: Update Booking
-            booking.status = 'cancelled';
-            booking.paymentStatus = 'refunded';
-            await booking.save();
+    if (!booking) return res.status(404).json({ message: "Booking not found" });
 
-            res.send({ message: "Booking cancelled successfully.", refunded: refundAmount, fee: cancellationCharge });
-        } else {
-            booking.status = 'cancelled';
-            await booking.save();
-            res.send({ message: "Booking cancelled. No refund required." });
-        }
-
-    } catch (error) {
-        res.status(500).send({ message: "Error during cancellation." });
+    if (booking.user_id.toString() !== userId.toString()) {
+      return res.status(403).json({ message: "Unauthorized" });
     }
+
+    if (booking.status !== "pending" && booking.status !== "confirmed") {
+      return res.status(400).json({ message: "Cannot cancel this booking" });
+    }
+
+    booking.status = "cancelled";
+
+    // Refund logic based on model
+    let refundAmount = 0;
+
+    if (booking.refundMode === "full") {
+      refundAmount = booking.totalAmount;   // full refund
+    } else {
+      const deduction = 50;   // example (your logic)
+      refundAmount = booking.totalAmount - deduction;
+    }
+
+    booking.requestStatus = "denied"; // user cancelled
+    await booking.save();
+
+    const refund = await refundToWallet(
+      booking.user_id,
+      refundAmount,
+      "BOOKING_CANCELLED_BY_USER"
+    );
+
+    res.status(200).json({
+      message: "Booking cancelled",
+      refundAmount,
+      booking,
+      refundTransactionId: refund.transactionId
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.acceptBooking = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+
+    let booking = await Booking.findById(bookingId);
+    if (!booking) return res.status(404).send({ message: "Booking not found" });
+
+    if (booking.requestStatus !== "pending")
+      return res.status(400).send({ message: "Booking already decided" });
+
+    booking.requestStatus = "accepted";
+    booking.status = "confirmed";  // 🔥 अब booking official confirm
+
+    await booking.save();
+
+    return res.status(200).send({
+      message: "Booking accepted successfully",
+      booking,
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "Server error" });
+  }
+};
+
+exports.denyBooking = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const bookingId = req.params.id;
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) return res.status(404).json({ message: "Booking not found" });
+
+    const table = await Table.findById(booking.table_id);
+
+    if (table.vendorId.toString() !== vendorId.toString()) {
+      return res.status(403).json({ message: "You cannot deny this booking" });
+    }
+
+    if (booking.requestStatus !== "pending") {
+      return res.status(400).json({ message: "Already decided" });
+    }
+
+    // ----------- STEP 1: Update Booking -----------
+    booking.requestStatus = "denied";
+    booking.status = "cancelled";
+
+    // Vendor denied → always full refund
+    booking.refundMode = "full";
+
+    await booking.save();
+
+    // ----------- STEP 2: Refund Logic -----------
+    const refundAmount = booking.totalAmount;
+
+    const refund = await refundToWallet(
+      booking.user_id,
+      refundAmount,
+      "BOOKING_DENIED_BY_VENDOR"
+    );
+
+    return res.status(200).json({
+      message: "Booking denied & full amount refunded",
+      booking,
+      refundTransactionId: refund.transactionId
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
 };
