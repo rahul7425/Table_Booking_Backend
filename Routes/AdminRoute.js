@@ -10,6 +10,6 @@ const {
 // All admin routes are protected and only accessible by admin
 router.post("/set-commission", protect, authorizeRoles("admin"), setCommission);
 router.get("/commissions", protect, authorizeRoles("admin"), getAllCommissions);
-router.get("/dashboard", protect, authorizeRoles("admin"), getDashboardTotals);
+router.get("/dashboard", protect, authorizeRoles("admin","vendor"), getDashboardTotals);
 
 module.exports = router;

@@ -10,9 +10,9 @@ const {
 } = require("../Controllers/Contact");
 
 router.post("/create", protect, createContact);
-router.get("/all", protect, authorizeRoles("admin"), getAllContacts);
-router.get("/:id", protect, authorizeRoles("admin"), getContactById);
-router.put("/:id", protect, authorizeRoles("admin"), updateContact);
-router.delete("/:id", protect, authorizeRoles("admin"), deleteContact);
+router.get("/all", protect, authorizeRoles("admin","vendor"), getAllContacts);
+router.get("/:id", protect, authorizeRoles("admin","vendor"), getContactById);
+router.put("/:id", protect, authorizeRoles("admin","vendor"), updateContact);
+router.delete("/:id", protect, authorizeRoles("admin","vendor"), deleteContact);
 
 module.exports = router;
