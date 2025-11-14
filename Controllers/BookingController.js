@@ -284,3 +284,82 @@ exports.cancelBooking = async (req, res) => {
         res.status(500).send({ message: "Server error during cancellation." });
     }
 };
+
+exports.denyBooking = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const bookingId = req.params.id;
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) return res.status(404).json({ message: "Booking not found" });
+
+    const table = await Table.findById(booking.table_id);
+
+    if (table.vendorId.toString() !== vendorId.toString()) {
+      return res.status(403).json({ message: "You cannot deny this booking" });
+    }
+
+    if (booking.requestStatus !== "pending") {
+      return res.status(400).json({ message: "Already decided" });
+    }
+
+    // ----------- STEP 1: Update Booking -----------
+    booking.requestStatus = "denied";
+    booking.status = "cancelled";
+
+    // Vendor denied → always full refund
+    booking.refundMode = "full";
+
+    await booking.save();
+
+    // ----------- STEP 2: Refund Logic -----------
+    const refundAmount = booking.totalAmount;
+
+    const refund = await refundToWallet(
+      booking.user_id,
+      refundAmount,
+      "BOOKING_DENIED_BY_VENDOR"
+    );
+
+    return res.status(200).json({
+      message: "Booking denied & full amount refunded",
+      booking,
+      refundTransactionId: refund.transactionId
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.acceptBooking = async (req, res) => {
+    try {
+        const bookingId = req.params.id;
+
+        const booking = await Booking.findById(bookingId);
+        if (!booking) {
+            return res.status(404).json({ message: "Booking not found" });
+        }
+
+        // Allow approval only when status is pending
+        if (booking.status !== "pending") {
+            return res.status(400).json({ message: `Cannot approve booking because it is already '${booking.status}'.` });
+        }
+
+        // Update booking status
+        booking.status = "approved";
+        booking.requestStatus = "approved";
+
+        await booking.save();
+
+        return res.status(200).json({
+            message: "Booking approved successfully.",
+            booking
+        });
+
+    } catch (error) {
+        console.error("Error approving booking:", error);
+        return res.status(500).json({ message: "Server error while approving booking." });
+    }
+};
