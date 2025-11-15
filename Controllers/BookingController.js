@@ -17,120 +17,217 @@ const calculateTotalAmount = (tablePrice, items) => {
     return tablePrice + itemsTotal;
 };
 
+
+
+
+
 exports.createBooking = async (req, res) => {
     const user_id = req.user._id;
-    const { table_id, schedule_id, items_ordered = [], paymentMethod } = req.body; 	
-    let transactionId = null; 
-    
+    const { table_id, schedule_id, items_ordered = [], paymentMethod, couponCode } = req.body;
+
+    let transactionId = null;
+    let appliedCoupon = null;
+    let discount = 0;
+
     try {
         const user = await User.findById(user_id);
         if (!user) return res.status(401).send({ message: "Authenticated user not found." });
 
         const wallet = await Wallet.findOne({ userId: user_id });
-
         if (!wallet) {
             return res.status(400).send({ message: "User wallet not found. Cannot proceed with booking." });
         }
-        const userWalletBalance = wallet.balance; 
+
+        const userWalletBalance = wallet.balance;
         const userWalletId = wallet._id;
 
         const table = await Table.findById(table_id);
         if (!table) return res.status(404).send({ message: "Table not found." });
-        
-        const tablePrice = (typeof table.price === 'number' && !isNaN(table.price)) ? table.price : 0; 
 
+        const tablePrice = Number(table.price) || 0;
         let validatedTotalAmount = tablePrice;
+
+        // ------------------- ITEM PRICE CALCULATION -------------------
         let finalItemsOrdered = [];
         for (const orderItem of items_ordered) {
             const { itemId, quantity: quantityStr, selected_variant_id } = orderItem;
             const quantity = Number(quantityStr);
+
             if (!itemId || isNaN(quantity) || quantity < 1 || !selected_variant_id) {
                 return res.status(400).send({ message: "Invalid quantity or missing item details." });
             }
+
             const itemFromDB = await Item.findById(itemId);
             if (!itemFromDB) {
                 return res.status(404).send({ message: `Item not found for ID: ${itemId}` });
             }
+
             const selectedVariant = itemFromDB.variants.find(
                 v => v._id.toString() === selected_variant_id
             );
-            if (!selectedVariant || !selectedVariant.isAvailable || typeof selectedVariant.price !== 'number' || isNaN(selectedVariant.price)) {
+
+            if (
+                !selectedVariant ||
+                !selectedVariant.isAvailable ||
+                typeof selectedVariant.price !== "number" ||
+                isNaN(selectedVariant.price)
+            ) {
                 return res.status(400).send({ message: `Selected variant is unavailable or its price is invalid.` });
             }
+
             const itemPrice = selectedVariant.price * quantity;
-            validatedTotalAmount += itemPrice; 
+            validatedTotalAmount += itemPrice;
+
             finalItemsOrdered.push({
                 itemId: itemFromDB._id,
-                quantity: quantity,
+                quantity,
                 selected_variant_id: selectedVariant._id
             });
         }
-        
-        const totalAmount = validatedTotalAmount; 
-        
-        if (isNaN(totalAmount)) {
-            console.error("Critical Error: Final totalAmount is NaN after calculation.");
+
+        if (isNaN(validatedTotalAmount)) {
             return res.status(500).send({ message: "Internal error: Failed to calculate total amount." });
         }
-        
+
+        // ---------------------------------------------------------------
+        // ⭐⭐⭐ APPLY COUPON LOGIC (FULL VALIDATION) ⭐⭐⭐
+        // ---------------------------------------------------------------
+        const Coupon = require("../Models/CouponModel");
+
+        if (couponCode) {
+            appliedCoupon = await Coupon.findOne({ code: couponCode });
+            if (!appliedCoupon) {
+                return res.status(400).send({ message: "Invalid coupon code" });
+            }
+
+            // ❌ Expired?
+            if (appliedCoupon.expiryDate && new Date() > appliedCoupon.expiryDate) {
+                return res.status(400).send({ message: "This coupon has expired" });
+            }
+
+            // ❌ Inactive?
+            if (!appliedCoupon.isActive) {
+                return res.status(400).send({ message: "This coupon is inactive" });
+            }
+
+            // ❌ Check min order value
+            if (validatedTotalAmount < appliedCoupon.minOrderValue) {
+                return res.status(400).send({
+                    message: `Minimum order value ₹${appliedCoupon.minOrderValue} required for this coupon`
+                });
+            }
+
+            // ❌ Check max usage per day
+            if (appliedCoupon.maxUsePerDay > 0) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const usedToday = appliedCoupon.usageHistory.filter(u =>
+                    new Date(u.usedAt) >= today
+                ).length;
+
+                if (usedToday >= appliedCoupon.maxUsePerDay) {
+                    return res.status(400).send({ message: "Coupon usage limit reached for today" });
+                }
+            }
+
+            // ❌ Already used by this user?
+            const alreadyUsed = appliedCoupon.usageHistory.some(
+                entry => entry.user_id.toString() === user_id.toString()
+            );
+
+            if (alreadyUsed) {
+                return res.status(400).send({ message: "You have already used this coupon" });
+            }
+
+            // Apply Discount
+            if (appliedCoupon.discountType === "percent") {
+                discount = (validatedTotalAmount * appliedCoupon.discountValue) / 100;
+            } else {
+                discount = appliedCoupon.discountValue;
+            }
+
+            validatedTotalAmount -= discount;
+            if (validatedTotalAmount < 0) validatedTotalAmount = 0;
+        }
+
+        // ---------------------------------------------------------------
         let onlinePaymentAmount = 0;
-        
-        // 2. Minimum Wallet Balance Check
+
         if (userWalletBalance < MIN_TABLE_PRICE_FOR_CHECK) {
-            return res.status(400).send({ 
-                message: `Minimum balance of ${MIN_TABLE_PRICE_FOR_CHECK} is required in your wallet for any booking. Please topup.` 
+            return res.status(400).send({
+                message: `Minimum balance of ${MIN_TABLE_PRICE_FOR_CHECK} is required in your wallet. Please topup.`
             });
         }
-        
-        // 3. Payment Decision
-        if (paymentMethod === 'online') {
-            onlinePaymentAmount = totalAmount; 
-        } else if (paymentMethod === 'cash') {
-            onlinePaymentAmount = tablePrice; 
+
+        if (paymentMethod === "online") {
+            onlinePaymentAmount = validatedTotalAmount;
+        } else if (paymentMethod === "cash") {
+            onlinePaymentAmount = tablePrice;
         } else {
             return res.status(400).send({ message: "Invalid payment method." });
         }
 
-        // 4. Final Balance Check
         if (userWalletBalance < onlinePaymentAmount) {
-            return res.status(400).send({ message: `Insufficient balance for online payment of ${onlinePaymentAmount}.` });
+            return res.status(400).send({
+                message: `Insufficient balance for online payment of ${onlinePaymentAmount}.`
+            });
         }
 
         const deductionResult = await deductFromWallet(
-            user_id, 
-            userWalletId, 
-            onlinePaymentAmount, 
-            "BOOKING_ADVANCE"
+            user_id,
+            userWalletId,
+            onlinePaymentAmount,
+            appliedCoupon
+                ? `BOOKING_ADVANCE (Discount applied: ${discount})`
+                : "BOOKING_ADVANCE"
         );
-        
+
         if (!deductionResult.success) {
             return res.status(500).send({ message: deductionResult.message || "Payment deduction failed." });
         }
-        
+
         transactionId = deductionResult.transactionId;
 
+        // ---------------- CREATE BOOKING ----------------
         const booking = new Booking({
             user_id,
             table_id,
             schedule_id,
-            items_ordered: finalItemsOrdered, 
-            totalAmount, 
-            paymentStatus: onlinePaymentAmount > 0 ? "paid" : "unpaid", 
+            items_ordered: finalItemsOrdered,
+            totalAmount: validatedTotalAmount,
+            paymentStatus: onlinePaymentAmount > 0 ? "paid" : "unpaid",
             status: "pending",
-            requestStatus: "pending"
+            requestStatus: "pending",
+
+            couponId: appliedCoupon ? appliedCoupon._id : null,
+            discountApplied: discount
         });
+
         await booking.save();
-        
-        if (onlinePaymentAmount > 0 && transactionId) {
+
+        // ---------------- STORE COUPON USAGE ----------------
+        if (appliedCoupon) {
+            appliedCoupon.usageHistory.push({
+                user_id,
+                booking_id: booking._id,
+                usedAt: new Date()
+            });
+
+            appliedCoupon.totalUsedCount += 1;
+            await appliedCoupon.save();
+        }
+
+        if (transactionId) {
             await Transaction.findByIdAndUpdate(transactionId, { bookingId: booking._id });
         }
-        
-        // 8. Success Response
+
         await sendBookingConfirmation(user.email, booking._id, "Business Name", table_id);
-        res.status(201).send({ 
-            message: "Booking successful! Payment deducted from wallet.", 
+
+        return res.status(201).send({
+            message: "Booking successful! Payment deducted from wallet.",
             bookingId: booking._id,
-            transactionId: transactionId 
+            transactionId
         });
 
     } catch (error) {
@@ -138,6 +235,131 @@ exports.createBooking = async (req, res) => {
         res.status(500).send({ message: "Server error during booking." });
     }
 };
+
+
+
+
+// exports.createBooking = async (req, res) => {
+//     const user_id = req.user._id;
+//     const { table_id, schedule_id, items_ordered = [], paymentMethod, couponCode  } = req.body; 	
+//     let transactionId = null; 
+    
+//     try {
+//         const user = await User.findById(user_id);
+//         if (!user) return res.status(401).send({ message: "Authenticated user not found." });
+
+//         const wallet = await Wallet.findOne({ userId: user_id });
+
+//         if (!wallet) {
+//             return res.status(400).send({ message: "User wallet not found. Cannot proceed with booking." });
+//         }
+//         const userWalletBalance = wallet.balance; 
+//         const userWalletId = wallet._id;
+
+//         const table = await Table.findById(table_id);
+//         if (!table) return res.status(404).send({ message: "Table not found." });
+        
+//         const tablePrice = (typeof table.price === 'number' && !isNaN(table.price)) ? table.price : 0; 
+
+//         let validatedTotalAmount = tablePrice;
+//         let finalItemsOrdered = [];
+//         for (const orderItem of items_ordered) {
+//             const { itemId, quantity: quantityStr, selected_variant_id } = orderItem;
+//             const quantity = Number(quantityStr);
+//             if (!itemId || isNaN(quantity) || quantity < 1 || !selected_variant_id) {
+//                 return res.status(400).send({ message: "Invalid quantity or missing item details." });
+//             }
+//             const itemFromDB = await Item.findById(itemId);
+//             if (!itemFromDB) {
+//                 return res.status(404).send({ message: `Item not found for ID: ${itemId}` });
+//             }
+//             const selectedVariant = itemFromDB.variants.find(
+//                 v => v._id.toString() === selected_variant_id
+//             );
+//             if (!selectedVariant || !selectedVariant.isAvailable || typeof selectedVariant.price !== 'number' || isNaN(selectedVariant.price)) {
+//                 return res.status(400).send({ message: `Selected variant is unavailable or its price is invalid.` });
+//             }
+//             const itemPrice = selectedVariant.price * quantity;
+//             validatedTotalAmount += itemPrice; 
+//             finalItemsOrdered.push({
+//                 itemId: itemFromDB._id,
+//                 quantity: quantity,
+//                 selected_variant_id: selectedVariant._id
+//             });
+//         }
+        
+//         const totalAmount = validatedTotalAmount; 
+        
+//         if (isNaN(totalAmount)) {
+//             console.error("Critical Error: Final totalAmount is NaN after calculation.");
+//             return res.status(500).send({ message: "Internal error: Failed to calculate total amount." });
+//         }
+        
+//         let onlinePaymentAmount = 0;
+        
+//         // 2. Minimum Wallet Balance Check
+//         if (userWalletBalance < MIN_TABLE_PRICE_FOR_CHECK) {
+//             return res.status(400).send({ 
+//                 message: `Minimum balance of ${MIN_TABLE_PRICE_FOR_CHECK} is required in your wallet for any booking. Please topup.` 
+//             });
+//         }
+        
+//         // 3. Payment Decision
+//         if (paymentMethod === 'online') {
+//             onlinePaymentAmount = totalAmount; 
+//         } else if (paymentMethod === 'cash') {
+//             onlinePaymentAmount = tablePrice; 
+//         } else {
+//             return res.status(400).send({ message: "Invalid payment method." });
+//         }
+
+//         // 4. Final Balance Check
+//         if (userWalletBalance < onlinePaymentAmount) {
+//             return res.status(400).send({ message: `Insufficient balance for online payment of ${onlinePaymentAmount}.` });
+//         }
+
+//         const deductionResult = await deductFromWallet(
+//             user_id, 
+//             userWalletId, 
+//             onlinePaymentAmount, 
+//             "BOOKING_ADVANCE"
+//         );
+        
+//         if (!deductionResult.success) {
+//             return res.status(500).send({ message: deductionResult.message || "Payment deduction failed." });
+//         }
+        
+//         transactionId = deductionResult.transactionId;
+
+//         const booking = new Booking({
+//             user_id,
+//             table_id,
+//             schedule_id,
+//             items_ordered: finalItemsOrdered, 
+//             totalAmount, 
+//             paymentStatus: onlinePaymentAmount > 0 ? "paid" : "unpaid", 
+//             status: "pending",
+//             requestStatus: "pending"
+//         });
+//         await booking.save();
+        
+//         if (onlinePaymentAmount > 0 && transactionId) {
+//             await Transaction.findByIdAndUpdate(transactionId, { bookingId: booking._id });
+//         }
+        
+//         // 8. Success Response
+//         await sendBookingConfirmation(user.email, booking._id, "Business Name", table_id);
+//         res.status(201).send({ 
+//             message: "Booking successful! Payment deducted from wallet.", 
+//             bookingId: booking._id,
+//             transactionId: transactionId 
+//         });
+
+//     } catch (error) {
+//         console.error(error);
+//         res.status(500).send({ message: "Server error during booking." });
+//     }
+// };
 // --- On-Site Check-in (Staff Logic) ---
 exports.staffCheckIn = async (req, res) => {
     const { bookingId } = req.body;

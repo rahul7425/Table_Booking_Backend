@@ -8,6 +8,17 @@ const bookingSchema = new mongoose.Schema(
       required: true,
     },
 
+    couponId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Coupon",
+      default: null
+    },
+
+    discountApplied: {
+      type: Number,
+      default: 0
+    },
+
     user_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -45,7 +56,7 @@ const bookingSchema = new mongoose.Schema(
       default: "pending",
     },
 
-     refundMode: {
+    refundMode: {
       type: String,
       enum: ["full", "partial"],
       default: "partial"
