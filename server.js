@@ -9,10 +9,6 @@ const blogRoutes = require("./Routes/blogRoutes");
 const commentRoutes = require("./Routes/commentRoutes");
 const contactRoutes = require("./Routes/ContactRoute");
 const reviewRoutes = require("./Routes/ReviewRoute");
-
-
-
-// Routes
 const userRoutes = require("./Routes/UserRoute");
 
 // const restaurantRoutes = require("./routes/RestaurantRoutes");
@@ -21,8 +17,8 @@ const adminRoutes = require("./Routes/AdminRoute");
 const businessRoutes = require("./Routes/BusinessRoute");
 const detailRoutes = require("./Routes/Business");
 const bookingRoutes = require("./Routes/BookingRoute");
+const couponRoutes = require("./Routes/CouponRoutes");
 
-// const orderRoutes = require("./routes/OrderRoutes");
 
 const app = express();
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
@@ -52,8 +48,7 @@ app.use("/api/blogs", blogRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/reviews", reviewRoutes);
-
-
+app.use("/api/coupon", couponRoutes);
 
 // Default Route
 app.get("/", (req, res) => {
