@@ -17,6 +17,10 @@ const calculateTotalAmount = (tablePrice, items) => {
     return tablePrice + itemsTotal;
 };
 
+
+
+
+
 exports.createBooking = async (req, res) => {
     const user_id = req.user._id;
     const { table_id, schedule_id, items_ordered = [], paymentMethod, couponCode } = req.body;
