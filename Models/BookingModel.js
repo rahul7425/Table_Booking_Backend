@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { itemSchema } = require("./ItemModel");
+
 const bookingSchema = new mongoose.Schema(
   {
     table_id: {
@@ -25,14 +26,14 @@ const bookingSchema = new mongoose.Schema(
       required: true,
     },
 
+    // ✅ शेड्यूल की ID पहले से मौजूद है
     schedule_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Schedule",
+      required: true, // इसे अनिवार्य (required: true) करना उचित हो सकता है
     },
-
     items_ordered: [
       {
-        // 🔥 FIX: item_details को हटाकर IDs और Quantity को सीधे यहाँ रखें
         itemId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Item", // आइटम मॉडल का रेफरेंस 
