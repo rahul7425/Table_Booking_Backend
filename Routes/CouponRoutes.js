@@ -36,4 +36,11 @@ router.post(
   cc.validateCoupon
 );
 
+router.delete(
+  "/delete/:couponId",
+  protect,
+  authorizeRoles("vendor"),
+  cc.deleteCoupon
+);
+
 module.exports = router;
