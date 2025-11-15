@@ -18,7 +18,7 @@ const businessRoutes = require("./Routes/BusinessRoute");
 const detailRoutes = require("./Routes/Business");
 const bookingRoutes = require("./Routes/BookingRoute");
 const couponRoutes = require("./Routes/CouponRoutes");
-
+const slotRoutes = require("./Routes/slotRoutes");
 
 const app = express();
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
@@ -49,7 +49,7 @@ app.use("/api/comments", commentRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/coupon", couponRoutes);
-
+app.use("/api/slots", slotRoutes);
 // Default Route
 app.get("/", (req, res) => {
   res.send("🍽️ Hotel Table Booking Backend is Running...");
