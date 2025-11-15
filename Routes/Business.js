@@ -42,11 +42,13 @@ router.put(
   updateBusiness
 );
 
-// Get business by id
-router.get("/:businessId", getBusinessById);
+
 
 // Get businesses (filter via body vendorId etc)
 router.post("/list", protect, getBusinesses);
+
+// Get business by id
+router.get("/:businessId", getBusinessById);
 
 // Delete business
 router.delete("/:businessId", protect, deleteBusiness);
