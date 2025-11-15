@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { itemSchema } = require("./ItemModel");
+
 const bookingSchema = new mongoose.Schema(
   {
     table_id: {
@@ -8,20 +9,38 @@ const bookingSchema = new mongoose.Schema(
       required: true,
     },
 
+    couponId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Coupon",
+      default: null
+    },
+
+    discountApplied: {
+      type: Number,
+      default: 0
+    },
+
     user_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
 
+    // ✅ शेड्यूल की ID पहले से मौजूद है
     schedule_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Schedule",
+      required: true, // इसे अनिवार्य (required: true) करना उचित हो सकता है
+    },
+    
+    // ✅ स्लॉट की ID को जोड़ा गया
+    slotId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true, 
     },
 
     items_ordered: [
       {
-        // 🔥 FIX: item_details को हटाकर IDs और Quantity को सीधे यहाँ रखें
         itemId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Item", // आइटम मॉडल का रेफरेंस 
@@ -45,7 +64,7 @@ const bookingSchema = new mongoose.Schema(
       default: "pending",
     },
 
-     refundMode: {
+    refundMode: {
       type: String,
       enum: ["full", "partial"],
       default: "partial"

@@ -49,26 +49,6 @@
 // models/Schedule.js
 const mongoose = require("mongoose");
 
-const slotSchema = new mongoose.Schema({
-  time: { type: String, required: true },
-  isAvailable: { type: Boolean, default: true },
-  bookingId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Booking",
-    default: null,
-  },
-});
-
-const dayEnum = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
-
 const scheduleSchema = new mongoose.Schema(
   {
     businessId: {
@@ -97,13 +77,10 @@ const scheduleSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
-
-    slots: [slotSchema],
-
-    scheduleType: {
-      type: String,
-      enum: ["1 Week", "1 Month", "1 Year"],
-      default: "1 Week",
+    slotSetId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Slot",
+        required: true,
     },
   },
   { timestamps: true }
