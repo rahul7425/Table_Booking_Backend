@@ -74,27 +74,45 @@ exports.createContact = async (req, res) => {
 };
 
 
-
 exports.getAllContacts = async (req, res) => {
   try {
-    const contacts = await Contact.find().sort({ createdAt: -1 });
-    res.status(200).json({ success: true, count: contacts.length, contacts });
+    const contacts = await Contact.find()
+      .populate("from", "name email role")
+      .populate("to", "name email role")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: contacts.length,
+      contacts
+    });
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
+
 
 exports.getContactById = async (req, res) => {
   try {
-    const contact = await Contact.findById(req.params.id);
+    const contact = await Contact.findById(req.params.id)
+      .populate("from", "name email role")
+      .populate("to", "name email role");
+
     if (!contact)
       return res.status(404).json({ message: "Contact message not found" });
 
-    res.status(200).json({ success: true, contact });
+    res.status(200).json({
+      success: true,
+      contact
+    });
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 exports.updateContact = async (req, res) => {
   try {
