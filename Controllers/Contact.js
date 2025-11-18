@@ -1,15 +1,66 @@
 const Contact = require("../Models/ContactModel");
+const User = require("../Models/UserModel");
+
+// exports.createContact = async (req, res) => {
+//   try {
+//     const { title, description, mail } = req.body;
+//     const role = req.user.role;
+
+//     const newContact = await Contact.create({
+//       title,
+//       description,
+//       mail,
+//       role,
+//     });
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Contact message created successfully",
+//       contact: newContact,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 
 exports.createContact = async (req, res) => {
   try {
-    const { title, description, mail } = req.body;
-    const role = req.user.role;
+    const { title, description, mail, toUserId } = req.body;
+    const sender = req.user; // logged-in user
+
+    let receiverId;
+
+    // USER → VENDOR
+    if (sender.role === "user") {
+      if (!toUserId)
+        return res.status(400).json({ message: "Vendor ID is required" });
+
+      receiverId = toUserId;
+    }
+
+    // VENDOR → ADMIN
+    else if (sender.role === "vendor") {
+      const admin = await User.findOne({ role: "admin" });
+
+      if (!admin)
+        return res.status(404).json({ message: "Admin not found" });
+
+      receiverId = admin._id;
+    }
+
+    // ADMIN should not send messages
+    else {
+      return res
+        .status(403)
+        .json({ message: "Admin cannot send contact messages" });
+    }
 
     const newContact = await Contact.create({
       title,
       description,
       mail,
-      role,
+      from: sender._id,
+      to: receiverId,
     });
 
     res.status(201).json({
@@ -21,6 +72,8 @@ exports.createContact = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
 
 exports.getAllContacts = async (req, res) => {
   try {
