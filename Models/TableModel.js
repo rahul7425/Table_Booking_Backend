@@ -5,7 +5,7 @@ const tableSchema = new mongoose.Schema(
   {
     businessId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "VendorBusiness",
+      ref: "Business",
       required: true,
     },
     branchId: {

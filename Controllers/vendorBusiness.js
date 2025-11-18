@@ -105,6 +105,41 @@ const deleteBusinessData = async (req, res) => {
 };
 
 // ✅ GET ALL
+// const getAllBusinessData = async (req, res) => {
+//   try {
+//     const { model, businessId, branchId, type } = req.body;
+//     const SelectedModel = getModel(model);
+
+//     const filter = {};
+//     if (businessId) filter.businessId = businessId;
+//     if (branchId) filter.branchId = branchId;
+//     if (type) filter.type = type; // filter by food/drink
+
+//     const data = await SelectedModel.find(filter).sort({ createdAt: -1 });
+//     res.status(200).json({ success: true, count: data.length, data });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+const populateMap = {
+  Schedule: [
+    { path: "businessId", select: "name email phone" },
+    { path: "branchId" },
+    { path: "tableId" },
+    { path: "slotSetId" }
+  ],
+  Table: [
+    { path: "businessId" },
+    { path: "branchId" }
+  ],
+  Item: [
+    { path: "businessId" },
+    { path: "branchId" }
+  ]
+};
+
+// ✅ GET ALL
 const getAllBusinessData = async (req, res) => {
   try {
     const { model, businessId, branchId, type } = req.body;
@@ -113,14 +148,26 @@ const getAllBusinessData = async (req, res) => {
     const filter = {};
     if (businessId) filter.businessId = businessId;
     if (branchId) filter.branchId = branchId;
-    if (type) filter.type = type; // filter by food/drink
+    if (type) filter.type = type;
 
-    const data = await SelectedModel.find(filter).sort({ createdAt: -1 });
+    let query = SelectedModel.find(filter).sort({ createdAt: -1 });
+
+    // 🔥 Apply populate dynamically
+    if (populateMap[model]) {
+      populateMap[model].forEach(pop => {
+        query = query.populate(pop);
+      });
+    }
+
+    const data = await query;
+
     res.status(200).json({ success: true, count: data.length, data });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
 
 // ✅ GET BY ID
 const getByIdBusinessData = async (req, res) => {

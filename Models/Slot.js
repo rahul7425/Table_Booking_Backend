@@ -11,7 +11,7 @@ const daySlotSchema = new mongoose.Schema({
     times: [{
         time: { 
             type: String, 
-            required: true // e.g., "9:00 AM", "10:00 AM"
+            required: false // e.g., "9:00 AM", "10:00 AM"
         }, 
         isAvailable: { 
             type: Boolean, 

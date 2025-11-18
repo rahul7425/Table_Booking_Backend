@@ -45,7 +45,6 @@
 // // ✅ CommonJS export
 // module.exports = mongoose.model("Schedule", scheduleSchema);
 
-
 // models/Schedule.js
 const mongoose = require("mongoose");
 
@@ -53,26 +52,19 @@ const scheduleSchema = new mongoose.Schema(
   {
     businessId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "VendorBusiness",
+      ref: "Business",
       required: true,
     },
-    branchId: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: true,
-    },
+ branchId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Branch"
+}
+,
     tableId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Table",
       required: true,
     },
-
-    // ⬇️ NEW FIELD → vendor can mark OFF days
-    closedDays: {
-      type: [String],
-      enum: dayEnum,
-      default: [],
-    },
-
     date: {
       type: Date,
       required: true,
@@ -86,4 +78,5 @@ const scheduleSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// ✅ CommonJS export
 module.exports = mongoose.model("Schedule", scheduleSchema);
