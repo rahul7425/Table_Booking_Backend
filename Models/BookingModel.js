@@ -32,13 +32,6 @@ const bookingSchema = new mongoose.Schema(
       ref: "Schedule",
       required: true, // इसे अनिवार्य (required: true) करना उचित हो सकता है
     },
-    
-    // ✅ स्लॉट की ID को जोड़ा गया
-    slotId: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: true, 
-    },
-
     items_ordered: [
       {
         itemId: {

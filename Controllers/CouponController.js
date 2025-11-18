@@ -116,3 +116,32 @@ exports.validateCoupon = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.deleteCoupon = async (req, res) => {
+  try {
+    const { couponId } = req.params;
+
+    const coupon = await Coupon.findById(couponId);
+    if (!coupon) {
+      return res.status(404).json({ message: "Coupon not found" });
+    }
+
+    // Delete image if exists
+    if (coupon.image) {
+      const filePath = path.join("Coupons", coupon.image);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    await coupon.deleteOne();
+
+    return res.status(200).json({
+      message: "Coupon deleted successfully",
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: error.message });
+  }
+};
