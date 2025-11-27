@@ -10,7 +10,7 @@ const walletSchema = new mongoose.Schema(
         branchId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Branch",
-          required: true,
+          required: false,
         },
         balance: {
             type: Number,

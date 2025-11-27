@@ -38,7 +38,7 @@ const couponSchema = new mongoose.Schema(
     },
 
     image: {
-      type: String, // Cloud URL path
+      type: String, // Cloud URL path 
       default: null,
     },
 
