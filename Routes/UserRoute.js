@@ -40,16 +40,16 @@ router.get("/all", protect, authorizeRoles("admin", "vendor"), getAllUsers);
 
 // 🔹 Get by ID
 router.get("/:id", protect, authorizeRoles("admin", "vendor"), getUserById);
-router.post('/profile',  
+router.post('/profile',
     upload.single('profilePicture'),
     updateUserProfile
 );
 
 // Referral
 router.post("/apply-referral", protect, applyReferralCode);
-router.post("/referral/reward-after-booking", protect, updateWalletAfterBooking);
 
 // 🔹 Admin Referral Control
+
 router.post("/admin/update-reward", protect, authorizeRoles("admin"), updateReferralReward);
 router.get("/admin/get-reward", protect, authorizeRoles("admin"), getReferralReward);
 router.get("/admin/referrals", protect, authorizeRoles("admin"), getAllReferrals);

@@ -8,7 +8,9 @@ const cc = require("../Controllers/CouponController");
 router.post(
   "/create",
   protect,
-  authorizeRoles("vendor"),
+  // authorizeRoles("vendor"),
+  authorizeRoles("admin", "vendor"),
+
   upload.single("image"),
   cc.createCoupon
 );
@@ -17,7 +19,9 @@ router.post(
 router.get(
   "/business/:business_id",
   protect,
-  authorizeRoles("vendor"),
+  // authorizeRoles("vendor"),
+  authorizeRoles("admin", "vendor"),
+
   cc.getCouponsByBusiness
 );
 
@@ -25,7 +29,9 @@ router.get(
 router.get(
   "/details/:couponId",
   protect,
-  authorizeRoles("vendor"),
+  // authorizeRoles("vendor"),
+  authorizeRoles("admin", "vendor"),
+
   cc.getCouponDetails
 );
 
@@ -36,10 +42,23 @@ router.post(
   cc.validateCoupon
 );
 
+router.put(
+  "/update/:couponId",
+  protect,
+  // authorizeRoles("vendor"),
+  authorizeRoles("admin", "vendor"),
+
+  upload.single("image"),   // optional image
+  cc.updateCoupon
+);
+
+
 router.delete(
   "/delete/:couponId",
   protect,
-  authorizeRoles("vendor"),
+  // authorizeRoles("vendor"),
+  authorizeRoles("admin", "vendor"),
+
   cc.deleteCoupon
 );
 

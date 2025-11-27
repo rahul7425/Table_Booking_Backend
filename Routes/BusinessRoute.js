@@ -56,7 +56,8 @@ router.put(
 router.post(
   "/create",
   protect,
-  authorizeRoles("vendor"),
+  // authorizeRoles("vendor"),
+  authorizeRoles("admin", "vendor"),
   setUploadType("category"),
   upload.single("image"),
   createBusinessData
@@ -65,14 +66,22 @@ router.post(
 router.put(
   "/update",
   protect,
-  authorizeRoles("vendor"),
+  // authorizeRoles("vendor"),
+
+  authorizeRoles("admin", "vendor"),
+
   setUploadType("category"),
   upload.single("image"),
   updateBusinessData
 );
 
-router.delete("/delete", protect, authorizeRoles("vendor"), deleteBusinessData);
+router.delete("/delete",
+  protect,
+  // authorizeRoles("vendor"),
+  authorizeRoles("admin", "vendor"),
+
+  deleteBusinessData);
 router.post("/get-all", protect, getAllBusinessData);
 router.post("/get-by-id", protect, getByIdBusinessData);
 
-module.exports = router;
+module.exports = router;

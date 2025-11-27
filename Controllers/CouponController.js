@@ -117,6 +117,72 @@ exports.validateCoupon = async (req, res) => {
   }
 };
 
+exports.updateCoupon = async (req, res) => {
+  try {
+    const { couponId } = req.params;
+
+    const coupon = await Coupon.findById(couponId);
+    if (!coupon) {
+      return res.status(404).json({ message: "Coupon not found" });
+    }
+
+    // Body se data nikal lo
+    const {
+      code,
+      discountType,
+      discountValue,
+      expiryDate,
+      isActive,
+      description,
+      minOrderValue,
+      maxUsePerDay
+    } = req.body;
+
+    // Coupon code duplicate check (except same coupon)
+    if (code && code !== coupon.code) {
+      const existing = await Coupon.findOne({ code });
+      if (existing) {
+        return res.status(400).json({ message: "Coupon code already exists" });
+      }
+    }
+
+    // Update fields
+    coupon.code = code || coupon.code;
+    coupon.discountType = discountType || coupon.discountType;
+    coupon.discountValue = discountValue || coupon.discountValue;
+    coupon.expiryDate = expiryDate || coupon.expiryDate;
+    coupon.isActive = isActive ?? coupon.isActive;
+    coupon.description = description || coupon.description;
+    coupon.minOrderValue = minOrderValue || coupon.minOrderValue;
+    coupon.maxUsePerDay = maxUsePerDay || coupon.maxUsePerDay;
+
+    // Image update
+    if (req.file) {
+      // Purani image delete
+      if (coupon.image) {
+        const oldPath = path.join("Coupons", coupon.image);
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      }
+
+      coupon.image = req.file.filename;
+    }
+
+    await coupon.save();
+
+    return res.status(200).json({
+      message: "Coupon updated successfully",
+      coupon
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
 exports.deleteCoupon = async (req, res) => {
   try {
     const { couponId } = req.params;

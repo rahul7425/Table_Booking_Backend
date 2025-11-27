@@ -2,6 +2,8 @@ const axios = require("axios");
 const jwt = require("jsonwebtoken");
 const User = require("../Models/UserModel");
 const Wallet = require("../Models/WalletModel");
+const Referral = require("../Models/ReferralModel");
+const Setting = require("../Models/SettingModel");
 const { generateRefId } = require("../Utils/generateRefId");
 const { updateUserLocation } = require('../Utils/locationUtils');
 const EMAIL_API = "https://api.7uniqueverfiy.com/api/verify/email_checker_v1";
@@ -86,7 +88,7 @@ exports.verifyMobile = async (req, res) => {
         error: clientMessage,
     });
   }
-};
+}
 
 exports.verifyMail = async (req, res) => {
   try {
@@ -562,6 +564,10 @@ exports.updateUserProfile = async (req, res) => {
     }
 };
 
+//*******
+// Referral code below
+//*******
+
 // 🔹 Apply Referral Code (when new user signs up or logs in)
 exports.applyReferralCode = async (req, res) => {
   try {
@@ -612,48 +618,6 @@ exports.applyReferralCode = async (req, res) => {
     });
   } catch (error) {
     console.error("Referral Error:", error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// 🔹 After First Booking Success → Add Money to Referrer’s Wallet
-exports.updateWalletAfterBooking = async (req, res) => {
-  try {
-    const { userId } = req.body; // user who made the booking
-
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    if (user.firstBookingDone)
-      return res.status(400).json({ message: "Reward already given for first booking" });
-
-    // Find referral record
-    const referral = await Referral.findOne({
-      referredUser: user._id,
-      rewardCredited: false,
-    }).populate("referrer");
-
-    if (!referral) return res.status(400).json({ message: "No referral found or reward already given" });
-
-    // ✅ Credit referrer wallet
-    referral.referrer.walletBalance += referral.rewardAmount;
-    await referral.referrer.save();
-
-    // ✅ Update referral + user status
-    referral.rewardCredited = true;
-    referral.bookingCompleted = true;
-    await referral.save();
-
-    user.firstBookingDone = true;
-    await user.save();
-
-    res.json({
-      success: true,
-      message: "₹${referral.rewardAmount} credited to referrer wallet",
-      referral,
-    });
-  } catch (error) {
-    console.error("Reward Error:", error);
     res.status(500).json({ error: error.message });
   }
 };
