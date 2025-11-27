@@ -74,28 +74,100 @@ exports.getReviewsByBusiness = async (req, res) => {
 };
 
 // ✅ 3. Get Top 5 Popular Businesses (Based on Most Reviews)
-exports.getTopBusinesses = async (req, res) => {
-    try {
-        const top = await Review.aggregate([
-            {
-                $group: {
-                    _id: "$businessId",
-                    totalReviews: { $sum: 1 },
-                    avgRating: { $avg: "$rating" },
-                },
-            },
-            { $sort: { totalReviews: -1, avgRating: -1 } },
-            { $limit: 5 },
-        ]);
+// exports.getTopBusinesses = async (req, res) => {
+//     try {
+//         const top = await Review.aggregate([
+//             {
+//                 $group: {
+//                     _id: "$businessId",
+//                     totalReviews: { $sum: 1 },
+//                     avgRating: { $avg: "$rating" },
+//                 },
+//             },
+//             { $sort: { totalReviews: -1, avgRating: -1 } },
+//             { $limit: 5 },
+//         ]);
 
-        res.status(200).json({
-            success: true,
-            topBusinesses: top,
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+//         res.status(200).json({
+//             success: true,
+//             topBusinesses: top,
+//         });
+//     } catch (error) {
+//         res.status(500).json({ error: error.message });
+//     }
+// };
+
+exports.getTopBusinesses = async (req, res) => {
+  try {
+    const top = await Review.aggregate([
+      {
+        $group: {
+          _id: "$businessId",
+          totalReviews: { $sum: 1 },
+          avgRating: { $avg: "$rating" },
+        },
+      },
+      { $sort: { totalReviews: -1, avgRating: -1 } },
+      { $limit: 5 },
+
+      // ✅ Join Business Details
+      {
+        $lookup: {
+          from: "businesses",         // collection name (lowercase plural)
+          localField: "_id",
+          foreignField: "_id",
+          as: "businessData",
+        },
+      },
+
+      // convert array → object
+      { $unwind: "$businessData" },
+
+      // optional - fields clean karna
+      {
+        $project: {
+          _id: 1,
+          totalReviews: 1,
+          avgRating: 1,
+          businessData: {
+            name: 1,
+            email: 1,
+            phone: 1,
+            address: 1,
+            images: 1,
+          }
+        }
+      }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      topBusinesses: top,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
+
+
+// ✅ Get All Reviews
+exports.getAllReviews = async (req, res) => {
+  try {
+    const reviews = await Review.find()
+      .populate("userId", "name email")
+      .populate("businessId", "name")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      totalReviews: reviews.length,
+      reviews,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 
 // ✅ Update Review
 exports.updateReview = async (req, res) => {
@@ -125,22 +197,58 @@ exports.updateReview = async (req, res) => {
 
 
 // ✅ Delete Review
+// exports.deleteReview = async (req, res) => {
+//   console.log("id = ",req.params.id);
+//   console.log("user id = ",req.user._id);
+//   try {
+//         const review = await Review.findOneAndDelete({
+//             _id: req.params.id,
+//             userId: req.user._id,
+//         });
+
+//         if (!review) {
+//             return res.status(404).json({ message: "Review not found" });
+//         }
+
+//         res.status(200).json({
+//             success: true,
+//             message: "Review deleted successfully",
+//         });
+//     } catch (error) {
+//         res.status(500).json({ error: error.message });
+//     }
+// };
+
+// ✅ Delete Review (User or Admin)
 exports.deleteReview = async (req, res) => {
-    try {
-        const review = await Review.findOneAndDelete({
-            _id: req.params.id,
-            userId: req.user._id,
-        });
+  try {
+    const reviewId = req.params.id;
+    const userId = req.user._id;
+    const userRole = req.user.role;
 
-        if (!review) {
-            return res.status(404).json({ message: "Review not found" });
-        }
+    let review;
 
-        res.status(200).json({
-            success: true,
-            message: "Review deleted successfully",
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    if (userRole === "admin") {
+      // Admin can delete ANY review
+      review = await Review.findByIdAndDelete(reviewId);
+    } else {
+      // Normal user can delete only his own review
+      review = await Review.findOneAndDelete({
+        _id: reviewId,
+        userId: userId,
+      });
     }
+
+    if (!review) {
+      return res.status(404).json({ message: "Review not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Review deleted successfully",
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };

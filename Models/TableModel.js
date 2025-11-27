@@ -5,7 +5,7 @@ const tableSchema = new mongoose.Schema(
   {
     businessId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "VendorBusiness",
+      ref: "Business",
       required: true,
     },
     branchId: {
@@ -31,6 +31,10 @@ const tableSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    price:{
+      type: Number,
+      required: true,
+    }
   },
   { timestamps: true }
 );

@@ -1,13 +1,11 @@
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
 const User = require("../Models/UserModel");
+const Wallet = require("../Models/WalletModel");
 const { generateRefId } = require("../Utils/generateRefId");
 const { updateUserLocation } = require('../Utils/locationUtils');
 const EMAIL_API = "https://api.7uniqueverfiy.com/api/verify/email_checker_v1";
 const MOBILE_API = "https://api.7uniqueverfiy.com/api/verify/mobile_operator";
-
-const Referral = require("../Models/ReferralModel");
-const Setting = require("../Models/SettingModel");
 
 
 exports.verifyMobile = async (req, res) => {
@@ -90,7 +88,6 @@ exports.verifyMobile = async (req, res) => {
     });
   }
 };
-
 
 exports.verifyMail = async (req, res) => {
   try {
@@ -348,17 +345,11 @@ exports.verifyOtpAndLogin = async (req, res) => {
 
         if (!user) return res.status(404).json({ message: "User not found" });
         if (user.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
-
-        // --- 1. Referral Protection ---
-        // If the referral field is empty/null, set it using the generateRefId utility.
-        // NOTE: If your schema uses 'default: generateRefId', this is usually handled 
-        // on creation. This check ensures it's set if somehow missed or if you 
-        // are dealing with legacy data where the field might be undefined.
+        
         if (!user.referral) {
             user.referral = generateRefId(); 
         }
 
-        // Clear OTP and Save (this also saves the referral if it was updated above)
         user.otp = null;
         await user.save();
 
@@ -368,10 +359,24 @@ exports.verifyOtpAndLogin = async (req, res) => {
             { expiresIn: "7d" }
         );
 
-        // --- 2. Role-Based Location Update ---
+        try {
+            const existingWallet = await Wallet.findOne({ userId: user._id });
+            if (!existingWallet) {
+                const newWallet = new Wallet({
+                    userId: user._id,
+                    balance: 0,
+                });
+                await newWallet.save();
+                console.log(`✅ New Wallet created for user ID: ${user._id}`);
+            } else {
+                 console.log(`Wallet already exists for user ID: ${user._id}. Skipping creation.`);
+            }
+        } catch (walletError) {
+             console.error("Warning: Failed to create or check user wallet:", walletError.message);
+        }
+
         if (user.role === 'user' && latitude !== undefined && longitude !== undefined) {
             try {
-                // Since this runs only for 'user' role, we can proceed with coordinates update.
                 const lat = Number(latitude);
                 const lon = Number(longitude);
 
@@ -480,7 +485,6 @@ exports.getUserById = async (req, res) => {
   }
 };
 
-// Ensure User model is imported
 exports.updateUserProfile = async (req, res) => { 
     if (!req.user || !req.user.id) {
         return res.status(401).json({ success: false, message: "Unauthorized. Please ensure a valid token is provided." });
@@ -558,13 +562,6 @@ exports.updateUserProfile = async (req, res) => {
         res.status(500).json({ success: false, error: "Failed to update profile." });
     }
 };
-
-
-
-
-// *****//
-// blow Referral controllers
-// *****//
 
 // 🔹 Apply Referral Code (when new user signs up or logs in)
 exports.applyReferralCode = async (req, res) => {
@@ -653,7 +650,7 @@ exports.updateWalletAfterBooking = async (req, res) => {
 
     res.json({
       success: true,
-      message: `₹${referral.rewardAmount} credited to referrer wallet`,
+      message: "₹${referral.rewardAmount} credited to referrer wallet",
       referral,
     });
   } catch (error) {
@@ -677,7 +674,7 @@ exports.updateReferralReward = async (req, res) => {
 
     res.json({
       success: true,
-      message: `Referral reward updated to ₹${amount}`,
+      message: "Referral reward updated to ₹${amount}",
       setting,
     });
   } catch (error) {
@@ -737,6 +734,6 @@ exports.getReferralsByUser = async (req, res) => {
     });
   } catch (error) {
     console.error("Admin Get User Referrals Error:", error);
-    res.status(500).json({ error: error.message });
-  }
+    res.status(500).json({ error: error.message });
+  }
 };

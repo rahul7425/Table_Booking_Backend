@@ -1,4 +1,5 @@
 const Business = require("../Models/BusinessModel");
+const { Item } = require("../Models/ItemModel"); // 👈 correct import
 const Branch = require("../Models/BranchModel");
 const Wallet = require("../Models/WalletModel");
 const Commission = require("../Models/CommissionModel");
@@ -9,7 +10,7 @@ const mongoose = require("mongoose");
 
 const copyMenuTablesSchedules = async (vendorId, businessId, sourceBranchId, targetBranchId) => {
   // Copy MenuItems
-  const menuItems = await MenuItem.find({ businessId, branchId: sourceBranchId });
+  const menuItems = await Item.find({ businessId, branchId: sourceBranchId });
   if (menuItems && menuItems.length) {
     const clonedMenus = menuItems.map((m) => {
       const obj = m.toObject();
@@ -20,7 +21,7 @@ const copyMenuTablesSchedules = async (vendorId, businessId, sourceBranchId, tar
       obj.updatedAt = new Date();
       return obj;
     });
-    if (clonedMenus.length) await MenuItem.insertMany(clonedMenus);
+    if (clonedMenus.length) await Item.insertMany(clonedMenus);
   }
 
   // Copy Tables
@@ -236,11 +237,11 @@ exports.addBranch = async (req, res) => {
     await branch.save();
 
     // create wallet for branch
-    const wallet = new Wallet({ branchId: branch._id, balance: 0 });
-    await wallet.save();
+    // const wallet = new Wallet({ branchId: branch._id, balance: 0 });
+    // await wallet.save();
 
-    branch.walletId = wallet._id;
-    await branch.save();
+    // branch.walletId = wallet._id;
+    // await branch.save();
 
     // add to business
     business.branches.push(branch._id);
@@ -396,7 +397,7 @@ exports.getBusinesses = async (req, res) => {
         menuFilter.category = { $regex: category, $options: "i" };
 
       // 🔹 Find Matching Menu Items
-      const menus = await MenuItem.find(menuFilter).select("businessId");
+      const menus = await Item.find(menuFilter).select("businessId");
       menuBusinessIds = menus.map((m) => m.businessId);
 
       // 🔹 If no menus match, return empty response early
@@ -466,7 +467,7 @@ exports.deleteBusiness = async (req, res) => {
       await Wallet.deleteOne({ branchId: brId });
       await Branch.findByIdAndDelete(brId);
       // optionally: delete MenuItem/Table/Schedule for that branch
-      await MenuItem.deleteMany({ businessId: business._id, branchId: brId });
+      await Item.deleteMany({ businessId: business._id, branchId: brId });
       await Table.deleteMany({ businessId: business._id, branchId: brId });
       await Schedule.deleteMany({ businessId: business._id, branchId: brId });
     }
@@ -523,7 +524,6 @@ exports.toggleStatus = async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
-
 
 exports.updateBusinessStatus = async (req, res) => {
   try {

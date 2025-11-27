@@ -9,10 +9,6 @@ const blogRoutes = require("./Routes/blogRoutes");
 const commentRoutes = require("./Routes/commentRoutes");
 const contactRoutes = require("./Routes/ContactRoute");
 const reviewRoutes = require("./Routes/ReviewRoute");
-
-
-
-// Routes
 const userRoutes = require("./Routes/UserRoute");
 
 // const restaurantRoutes = require("./routes/RestaurantRoutes");
@@ -20,8 +16,9 @@ const userRoutes = require("./Routes/UserRoute");
 const adminRoutes = require("./Routes/AdminRoute");
 const businessRoutes = require("./Routes/BusinessRoute");
 const detailRoutes = require("./Routes/Business");
-// const bookingRoutes = require("./routes/BookingRoutes");
-// const orderRoutes = require("./routes/OrderRoutes");
+const bookingRoutes = require("./Routes/BookingRoute");
+const couponRoutes = require("./Routes/CouponRoutes");
+const slotRoutes = require("./Routes/slotRoutes");
 
 const app = express();
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
@@ -44,16 +41,15 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/business", businessRoutes);
 app.use("/api/details", detailRoutes);
 
-// app.use("/api/bookings", bookingRoutes);
+app.use("/api/bookings", bookingRoutes);
 // app.use("/api/orders", orderRoutes);
 
 app.use("/api/blogs", blogRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/reviews", reviewRoutes);
-
-
-
+app.use("/api/coupon", couponRoutes);
+app.use("/api/slots", slotRoutes);
 // Default Route
 app.get("/", (req, res) => {
   res.send("🍽️ Hotel Table Booking Backend is Running...");

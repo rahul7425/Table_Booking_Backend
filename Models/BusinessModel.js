@@ -29,7 +29,7 @@ const businessSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
 
     branches: [{ type: mongoose.Schema.Types.ObjectId, ref: "Branch" }],
-    menuItems: [{ type: mongoose.Schema.Types.ObjectId, ref: "MenuItem" }],
+    menuItems: [{ type: mongoose.Schema.Types.ObjectId, ref: "Item" }],
     categories: [{ type: mongoose.Schema.Types.ObjectId, ref: "Category" }],
     tables: [{ type: mongoose.Schema.Types.ObjectId, ref: "Table" }],
     schedules: [{ type: mongoose.Schema.Types.ObjectId, ref: "Schedule" }],

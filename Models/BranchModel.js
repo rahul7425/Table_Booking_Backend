@@ -18,7 +18,7 @@ const branchSchema = new mongoose.Schema(
       ref: "Business",
       required: true,
     },
-    name: { type: String, required: true }, // branch name (could be same as business)
+    name: { type: String, required: false }, // branch name (could be same as business)
     description: String,
     images: [String],
     address: addressSchema,
