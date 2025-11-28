@@ -6,7 +6,7 @@ const Referral = require("../Models/ReferralModel");
 const Setting = require("../Models/SettingModel");
 const { generateRefId } = require("../Utils/generateRefId");
 const { updateUserLocation } = require('../Utils/locationUtils');
-const EMAIL_API = "https://api.7uniqueverfiy.com/api/verify/email_checker_v1";
+// const EMAIL_API = "https://api.7uniqueverfiy.com/api/verify/email_checker_v1";
 const MOBILE_API = "https://api.7uniqueverfiy.com/api/verify/mobile_operator";
 
 
@@ -57,7 +57,7 @@ exports.verifyMobile = async (req, res) => {
       message: "Mobile number verified and user data successfully inserted/updated.",
       user: {
         id: userDoc._id,
-        mobile: userDoc.mobile,         
+        mobile: userDoc.mobile,
       }
     });
 
@@ -102,7 +102,7 @@ exports.verifyMail = async (req, res) => {
     console.log("Attempting Email Verification for:", email);
     const refid = generateRefId();
     const emailVerify = await axios.post(
-         EMAIL_API,
+         "https://control.msg91.com/api/v5/email/validate",
          { email,refid },
          { 
             headers: { 
@@ -110,18 +110,24 @@ exports.verifyMail = async (req, res) => {
                "x-env": process.env["X-Env"], 
                "client-id": process.env["Client-Id"],
                "authorization": process.env.Authorization,
+               "authkey": process.env.MSG91_AUTH_KEY,
             } 
          }
      );
-    console.log("Email Verification API Response:", emailVerify.data);
+    console.log("EEEE Email Verification API Response:", emailVerify.data);
 
      // 3. Check the response from the external API
-     if (!emailVerify.data.success) { // यह API रिस्पॉन्स स्ट्रक्चर पर निर्भर करता है
-         return res.status(400).json({
-               message: "Email verification failed or invalid email address.",
-               response: emailVerify.data,
-         });
-     }
+   // 3. Check based on email verification result
+const emailResult = emailVerify.data?.data?.result?.result;  
+
+if (emailResult !== "deliverable") {
+    return res.status(400).json({
+        success: false,
+        message: "Email is not deliverable. Verification failed.",
+        emailStatus: emailResult
+    });
+}
+
     
      // 4. Find User by Mobile and Update Email/Verification Status
      const user = await User.findOneAndUpdate(
@@ -157,7 +163,7 @@ exports.verifyMail = async (req, res) => {
     // API-specific error handling (if the external service fails)
     if (error.response) {
         return res.status(error.response.status || 502).json({ 
-            success: false, 
+            success: false,
             error: "External email verification service failed.",
             details: error.response.data
         });
@@ -233,7 +239,6 @@ exports.sendOtpLogin = async (req, res) => {
     const refid = generateRefId();
 
     console.log("Attempting Mobile Verification for:", mobile);
-
     const mobileVerify = await axios.post(
       MOBILE_API,
       { refid, mobile },
@@ -478,6 +483,8 @@ exports.getAllUsers = async (req, res) => {
 };
 
 exports.getUserById = async (req, res) => {
+    console.log("Fetched User:");
+
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
