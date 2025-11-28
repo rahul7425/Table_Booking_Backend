@@ -32,5 +32,19 @@ const branchSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+branchSchema.virtual("fullImageUrls").get(function () {
+  if (!this.images || this.images.length === 0) {
+    return [];
+  }
 
+  const BASE_URL = process.env.APP_URL || "http://localhost:3000";
+
+  // Backslashes को forward slashes में बदलना और BASE_URL जोड़ना
+  return this.images.map((imagePath) => {
+    const cleanedPath = imagePath.replace(/\\/g, "/");
+    return `${BASE_URL}/${cleanedPath}`;
+  });
+});
+branchSchema.set("toObject", { virtuals: true });
+branchSchema.set("toJSON", { virtuals: true });
 module.exports = mongoose.model("Branch", branchSchema);

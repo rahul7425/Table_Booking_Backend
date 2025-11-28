@@ -69,7 +69,22 @@ const businessSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+businessSchema.virtual("fullImageUrls").get(function () {
+  if (!this.images || this.images.length === 0) {
+    return [];
+  }
 
+  const BASE_URL = process.env.APP_URL || "http://localhost:3000";
+
+  // Backslashes को forward slashes में बदलना और BASE_URL जोड़ना
+  return this.images.map((imagePath) => {
+    const cleanedPath = imagePath.replace(/\\/g, "/");
+    return `${BASE_URL}/${cleanedPath}`;
+  });
+});
+
+businessSchema.set("toObject", { virtuals: true });
+businessSchema.set("toJSON", { virtuals: true });
 // Text & Geo Indexes
 businessSchema.index({ location: "2dsphere" });
 businessSchema.index({

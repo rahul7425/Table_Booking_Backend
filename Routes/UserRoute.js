@@ -40,7 +40,7 @@ router.get("/all", protect, authorizeRoles("admin", "vendor"), getAllUsers);
 
 // Get by ID
 router.get("/:id", protect, authorizeRoles("admin", "vendor","user"), getUserById);
-router.post('/profile',
+router.post('/profile',protect,
     upload.single('profilePicture'),
     updateUserProfile
 );
