@@ -35,11 +35,11 @@ router.post("/verify-otp-login", verifyOtpAndLogin);
 router.put("/update-profile", protect, upload.single("profilePicture"), updateProfile);
 router.put("/delete", protect, softDelete);
 
-// 🔹 Admin
+// Admin
 router.get("/all", protect, authorizeRoles("admin", "vendor"), getAllUsers);
 
-// 🔹 Get by ID
-router.get("/:id", protect, authorizeRoles("admin", "vendor"), getUserById);
+// Get by ID
+router.get("/:id", protect, authorizeRoles("admin", "vendor","user"), getUserById);
 router.post('/profile',
     upload.single('profilePicture'),
     updateUserProfile
