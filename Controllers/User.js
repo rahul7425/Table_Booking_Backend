@@ -483,8 +483,6 @@ exports.getAllUsers = async (req, res) => {
 };
 
 exports.getUserById = async (req, res) => {
-    console.log("Fetched User:");
-
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -495,13 +493,15 @@ exports.getUserById = async (req, res) => {
 };
 
 exports.updateUserProfile = async (req, res) => { 
-    if (!req.user || !req.user.id) {
+    if (!req.user || !req.user._id) {
         return res.status(401).json({ success: false, message: "Unauthorized. Please ensure a valid token is provided." });
     }
-    const userId = req.user.id; 
+    const userId = req.user._id; 
     
     try {
         const currentUser = await User.findById(userId).select('email mobile');
+        console.log("currentUser = ", currentUser);
+
         if (!currentUser) {
             return res.status(404).json({ success: false, message: "User not found in database for update." });
         }

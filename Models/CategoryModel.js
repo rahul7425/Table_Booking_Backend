@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-
 const categorySchema = new mongoose.Schema(
   {
     businessId: {
@@ -30,5 +29,17 @@ const categorySchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+categorySchema.virtual("fullImageUrl").get(function () {
+  if (!this.image) {
+    return null;
+  }
+  const BASE_URL = process.env.APP_URL || "http://localhost:3000";
+  const cleanedPath = this.image.replace(/\\/g, "/");
+  return `${BASE_URL}/${cleanedPath}`;
+});
 
+// --- Schema Options ---
+// सुनिश्चित करें कि virtuals JSON और Object output में शामिल हों ताकि fullImageUrl दिखे
+categorySchema.set("toObject", { virtuals: true });
+categorySchema.set("toJSON", { virtuals: true });
 module.exports = mongoose.model("Category", categorySchema);

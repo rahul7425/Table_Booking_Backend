@@ -69,7 +69,7 @@ const userSchema = new mongoose.Schema({
     default: "user",
   },
   age: { type: Number },
-  gender: { type: String, enum: ["Male", "Female", "Other"] },
+  gender: { type: String, enum: ["male", "female", "Other"] },
   address: { type: String },
   profilePicture: { type: String },
   status: { type: String, enum: ["active", "inactive"], default: "active" },
