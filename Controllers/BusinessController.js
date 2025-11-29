@@ -263,6 +263,93 @@ exports.addBranch = async (req, res) => {
   }
 };
 
+
+
+// Branch update controller
+exports.updateBranch = async (req, res) => {
+  try {
+    const vendorId = req.user?._id || req.body.vendorId;
+    const { businessId, branchId } = req.params;
+
+    if (!businessId || !branchId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "businessId and branchId are required" });
+    }
+
+    const branch = await Branch.findById(branchId);
+    if (!branch) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Branch not found" });
+    }
+
+    if (branch.businessId.toString() !== businessId.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: "Branch does not belong to this business",
+      });
+    }
+
+    const { name, description, address, isActive, plotNo, street, nearbyPlaces, area, city, state, pincode } = req.body;
+
+    let parsedAddress = address;
+
+    // 1️⃣ Agar `address` diya hai (object ya string), use lo
+    if (typeof parsedAddress === "string") {
+      try { parsedAddress = JSON.parse(parsedAddress); } catch (e) {}
+    }
+
+    // 2️⃣ Agar flat fields aaye hain (plotNo, street, city...), to unse address banao
+    const addressFromFlat = {};
+    if (plotNo) addressFromFlat.plotNo = plotNo;
+    if (street) addressFromFlat.street = street;
+    if (nearbyPlaces) addressFromFlat.nearbyPlaces = nearbyPlaces;
+    if (area) addressFromFlat.area = area;
+    if (city) addressFromFlat.city = city;
+    if (state) addressFromFlat.state = state;
+    if (pincode) addressFromFlat.pincode = pincode;
+
+    // agar addressFromFlat me kuch hai to use override kar do
+    if (Object.keys(addressFromFlat).length > 0) {
+      parsedAddress = { ...(branch.address?.toObject?.() || branch.address || {}), ...addressFromFlat };
+    }
+
+    const updateData = {};
+
+    if (typeof name !== "undefined") updateData.name = name;
+    if (typeof description !== "undefined") updateData.description = description;
+    if (typeof parsedAddress !== "undefined") updateData.address = parsedAddress;
+    if (typeof isActive !== "undefined") updateData.isActive = isActive;
+
+    if (req.files && req.files.length) {
+      updateData.images = req.files.map((f) => f.path);
+    }
+
+    if (vendorId) {
+      updateData.createdBy = vendorId;
+    }
+
+    const updatedBranch = await Branch.findByIdAndUpdate(
+      branchId,
+      updateData,
+      { new: true }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Branch updated",
+      data: updatedBranch,
+    });
+  } catch (error) {
+    console.error("updateBranch error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: error.message });
+  }
+};
+
+
 exports.updateBusiness = async (req, res) => {
   try {
     const { businessId } = req.params;
