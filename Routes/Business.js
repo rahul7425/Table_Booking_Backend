@@ -12,7 +12,8 @@ const {
   getBusinesses, 
   deleteBusiness,
   toggleStatus,
-  updateBusinessStatus
+  updateBusinessStatus,
+  updateBranch
 } = require("../Controllers/BusinessController");
 
 // Create business (multiple images)
@@ -33,6 +34,16 @@ router.post(
   upload.array("images", 10),
   addBranch
 );
+
+
+// Update branch (images optional)
+router.put(
+  "/:businessId/branches/:branchId",
+  protect,
+  upload.array("images", 10),
+  updateBranch
+);
+
 
 // Update business
 router.put(
