@@ -412,7 +412,8 @@ exports.getBusinessById = async (req, res) => {
 exports.getBusinesses = async (req, res) => {
   try {
     const {
-      vendorId,
+      // req.body से vendorId को हटा दें या उसका उपयोग केवल Admin के लिए करें
+      vendorId, 
       page = 1,
       limit = 20,
       businessName,
@@ -426,13 +427,25 @@ exports.getBusinesses = async (req, res) => {
       nearby,
       topRated,
       activeOnly,
-      requestStatus, // 👈 new filter
+      requestStatus, 
     } = req.body;
 
     let filter = {};
 
-    // 🔹 Vendor-based filter
-    if (vendorId) filter.vendorId = vendorId;
+    // 💡 Role and User ID from Request (Authentication Middleware से प्राप्त)
+    const userRole = req.user?.role;
+    const currentUserId = req.user?._id; 
+
+    // --- 🔹 Role-based Business Filter (नया/संशोधित लॉजिक) ---
+    if (userRole === 'vendor' && currentUserId) {
+      // ✅ VENDOR: केवल अपने vendorId से जुड़े बिज़नेस दिखाएं
+      filter.vendorId = currentUserId;
+    } else if (userRole === 'admin' && vendorId) {
+      // ✅ ADMIN: अगर req.body में vendorId दिया गया है, तो उसे फ़िल्टर करें
+      filter.vendorId = vendorId;
+    }
+    // Note: अगर userRole 'admin' है और vendorId नहीं दिया गया है, तो सभी बिज़नेस दिखेंगे
+    // -------------------------------------------------------------------
 
     // 🔹 Active business filter
     if (activeOnly) filter.isActive = true;
@@ -447,14 +460,9 @@ exports.getBusinesses = async (req, res) => {
     if (street) filter["address.street"] = { $regex: street, $options: "i" };
     if (pincode) filter["address.pincode"] = pincode;
 
-    // 🔹 Rating Filter (1–5 stars)
-    // if (topRated) {
-    //   filter.rating = { $gte: 4 }; // Example: 4+ stars
-    // }
-
     // 🔹 Rating Filter (Top Rated Businesses)
     if (topRated) {
-      filter.averageRating = { $gte: 2 }; // ✅ Correct field
+      filter.averageRating = { $gte: 2 }; 
     }
 
     // ✅ New Filter
@@ -495,7 +503,6 @@ exports.getBusinesses = async (req, res) => {
       // 🔹 Apply Business ID Filter
       filter._id = { $in: menuBusinessIds };
     }
-
 
 
     // 🔹 Nearby Filter (example using city or lat/lng if available)

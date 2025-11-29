@@ -3,6 +3,7 @@ const Item = require("../Models/ItemModel");
 const Table = require("../Models/TableModel");
 const Schedule = require("../Models/ScheduleModel");
 const Business = require("../Models/BusinessModel");
+const User = require('../Models/UserModel');
 
 const models = { Category, Item: Item.Item, Table, Schedule };
 
@@ -140,31 +141,63 @@ const populateMap = {
 };
 
 // ✅ GET ALL
-const getAllBusinessData = async (req, res) => {
+const getBusinessIdForUser = async (userId) => {
   try {
-    const { model, businessId, branchId, type } = req.body;
-    const SelectedModel = getModel(model);
-
-    const filter = {};
-    if (businessId) filter.businessId = businessId;
-    if (branchId) filter.branchId = branchId;
-    if (type) filter.type = type;
-
-    let query = SelectedModel.find(filter).sort({ createdAt: -1 });
-
-    // 🔥 Apply populate dynamically
-    if (populateMap[model]) {
-      populateMap[model].forEach(pop => {
-        query = query.populate(pop);
-      });
-    }
-
-    const data = await query;
-
-    res.status(200).json({ success: true, count: data.length, data });
+      const user = await User.findById(userId).select('role');         
+      if (!user || user.role !== 'vendor') {
+          return null;
+      }
+      const business = await Business.findOne({ vendorId: userId }).select('_id');
+      if (business) {
+          return business._id;
+      }
+      return null;         
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+      console.error("Error fetching business ID for user:", error);
+      return null;
   }
+};
+const getAllBusinessData = async (req, res) => {
+    const user = req.user; 
+    
+    try {
+        const { model, businessId, branchId, type } = req.body;
+        const SelectedModel = getModel(model);
+
+        const filter = {};
+        if (businessId) filter.businessId = businessId;
+        if (branchId) filter.branchId = branchId;
+        if (type) filter.type = type;
+
+        if (user.role === 'vendor') {
+            const vendorBusinessId = await getBusinessIdForUser(user._id);            
+            if (vendorBusinessId) {
+                filter.businessId = vendorBusinessId; 
+                if (businessId && String(businessId) !== String(vendorBusinessId)) {
+                    return res.status(403).json({ 
+                        success: false, 
+                        message: "Unauthorized access to this business data." 
+                    });
+                }
+            } else {
+                return res.status(200).json({ success: true, count: 0, data: [] });
+            }
+        }
+        
+        let query = SelectedModel.find(filter).sort({ createdAt: -1 });
+        
+        // Apply populate dynamically
+        if (populateMap[model]) {
+            populateMap[model].forEach(pop => {
+                query = query.populate(pop);
+            });
+        }
+
+        const data = await query;
+        res.status(200).json({ success: true, count: data.length, data});
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
 };
 
 
