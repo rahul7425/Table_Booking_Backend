@@ -16,48 +16,6 @@ const deleteFileIfExists = (filePath) => {
   }
 };
 
-// CREATE blog
-// exports.createBlog = async (req, res) => {
-//   try {
-//     const { title, description, content, slug: providedSlug, author } = req.body;
-
-//     if (!title) return res.status(400).json({ message: "Title is required" });
-
-//     // generate slug
-//     let slug = providedSlug ? slugify(providedSlug, { lower: true, strict: true }) : slugify(title, { lower: true, strict: true });
-
-//     // Make unique slug if exists
-//     let slugCandidate = slug;
-//     let i = 1;
-//     while (await Blog.findOne({ slug: slugCandidate })) {
-//       slugCandidate = `${slug}-${i++}`;
-//     }
-//     slug = slugCandidate;
-
-//     const blogData = {
-//       title,
-//       slug,
-//       description,
-//       content,
-//       author,
-//     };
-
-//    if (req.file) {
-//       blogData.image = `uploads/blogs/${req.file.filename}`;
-//     }
-
-//     const blog = new Blog(blogData);
-//     await blog.save();
-
-//     return res.status(201).json({ message: "Blog created", blog });
-//   } catch (err) {
-//     console.error(err);
-//     return res.status(500).json({ message: "Server error", error: err.message });
-//   }
-// };
-
-// CREATE blog
-
 exports.createBlog = async (req, res) => {
   try {
     const {
@@ -120,7 +78,6 @@ exports.createBlog = async (req, res) => {
     return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
-
 
 // LIST blogs (paginated) — page param (1-indexed), limit default 3
 exports.listBlogs = async (req, res) => {
