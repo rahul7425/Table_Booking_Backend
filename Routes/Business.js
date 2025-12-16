@@ -13,7 +13,8 @@ const {
   deleteBusiness,
   toggleStatus,
   updateBusinessStatus,
-  updateBranch
+  updateBranch,
+  updateBusinessPopularStatus
 } = require("../Controllers/BusinessController");
 
 // Create business (multiple images)
@@ -68,6 +69,6 @@ router.delete("/:businessId", protect, deleteBusiness);
 router.put("/toggle/:type/:id", protect, toggleStatus);
 
 router.put("/status/:businessId", protect, updateBusinessStatus);
-
+router.put("/popular/:businessId", protect, updateBusinessPopularStatus);
 
 module.exports = router;

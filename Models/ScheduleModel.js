@@ -60,11 +60,6 @@ const scheduleSchema = new mongoose.Schema(
   ref: "Branch"
 }
 ,
-    tableId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Table",
-      required: true,
-    },
     date: {
       type: Date,
       required: true,

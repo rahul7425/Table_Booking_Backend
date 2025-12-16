@@ -3,11 +3,13 @@ const { itemSchema } = require("./ItemModel");
 
 const bookingSchema = new mongoose.Schema(
   {
-    table_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Table",
-      required: true,
-    },
+    table_ids: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Table",
+        required: true,
+      }
+    ],
 
     couponId: {
       type: mongoose.Schema.Types.ObjectId,

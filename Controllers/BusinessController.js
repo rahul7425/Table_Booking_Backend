@@ -209,49 +209,69 @@ exports.addBranch = async (req, res) => {
     const business = await Business.findById(businessId);
     if (!business) return res.status(404).json({ message: "Business not found" });
 
-    // branch fields may be in body; images in req.files
-    const { name, description, address, sameAsBranchId } = req.body;
+    // 1. Destructure all required fields from req.body
+    const { 
+      name, 
+      description, 
+      address, 
+      type,
+      longitude,
+      latitude,
+      sameAsBranchId,
+    } = req.body;
+    
+    // --- Validation for required fields ---
+    if (!type) {
+        return res.status(400).json({ message: "Branch type is required." });
+    }
+    if (longitude === undefined || latitude === undefined) {
+        return res.status(400).json({ message: "Location (longitude and latitude) is required." });
+    }
+
+    // 2. Parse Address
     let parsedAddress = address;
     if (typeof address === "string") {
       try { parsedAddress = JSON.parse(address); } catch (e) { parsedAddress = address; }
     }
-
-    // images from upload
+    
+    // 3. Process Images
     const images = [];
     if (req.files && req.files.length) req.files.forEach((f) => images.push(f.path));
 
+    // 4. Create New Branch
     const branch = new Branch({
       businessId: business._id,
       name: name || business.name,
       description,
       images,
       address: parsedAddress,
+      type: type, // ⭐ Added type
       isActive: true,
       createdBy: vendorId,
       meta: {
         sameMenuAsOtherBranch: !!sameAsBranchId,
         copiedFromBranchId: sameAsBranchId || null,
       },
+      // ⭐ Added location
+      location: {
+        type: "Point",
+        coordinates: [parseFloat(longitude), parseFloat(latitude)], // [longitude, latitude]
+      }
     });
 
     await branch.save();
 
-    // create wallet for branch
-    // const wallet = new Wallet({ branchId: branch._id, balance: 0 });
-    // await wallet.save();
+    // ... (Wallet creation logic - commented out)
 
-    // branch.walletId = wallet._id;
-    // await branch.save();
-
-    // add to business
+    // 5. Add to business
     business.branches.push(branch._id);
     await business.save();
 
-    // If sameAsBranchId provided, copy menu & tables
+    // 6. Copy Menu & Tables
     if (sameAsBranchId) {
-      // validate source branch exists
       const srcBranch = await Branch.findById(sameAsBranchId);
       if (srcBranch) {
+        // Assuming copyMenuTablesSchedules is defined and available
         await copyMenuTablesSchedules(vendorId, business._id, sameAsBranchId, branch._id);
       }
     }
@@ -410,141 +430,176 @@ exports.getBusinessById = async (req, res) => {
 
 
 exports.getBusinesses = async (req, res) => {
-  try {
-    const {
-      // req.body से vendorId को हटा दें या उसका उपयोग केवल Admin के लिए करें
-      vendorId, 
-      page = 1,
-      limit = 20,
-      businessName,
-      menuItemName,
-      category,
-      area,
-      street,
-      pincode,
-      minRate,
-      maxRate,
-      nearby,
-      topRated,
-      activeOnly,
-      requestStatus, 
-    } = req.body;
+    try {
+        const {
+            // Pagination & General Filters
+            vendorId,
+            page = 1,
+            limit = 10,
+            businessName,
+            activeOnly,
+            requestStatus,
 
-    let filter = {};
+            // ⭐ NEW FILTERS / SORTS
+            foodType,
+            minAverageRating,
+            maxAverageRating,
+            sortRating,
 
-    // 💡 Role and User ID from Request (Authentication Middleware से प्राप्त)
-    const userRole = req.user?.role;
-    const currentUserId = req.user?._id; 
+            // 🌍 DISTANCE/NEARBY FILTER PARAMETERS
+            longitude,
+            latitude,
+            radius
+        } = req.body;
 
-    // --- 🔹 Role-based Business Filter (नया/संशोधित लॉजिक) ---
-    if (userRole === 'vendor' && currentUserId) {
-      // ✅ VENDOR: केवल अपने vendorId से जुड़े बिज़नेस दिखाएं
-      filter.vendorId = currentUserId;
-    } else if (userRole === 'admin' && vendorId) {
-      // ✅ ADMIN: अगर req.body में vendorId दिया गया है, तो उसे फ़िल्टर करें
-      filter.vendorId = vendorId;
+        let filter = {};
+        let sortOptions = { createdAt: -1 };
+        let isGeospatialQuery = false;
+        let pipeline = [];
+
+        // --- 1. Role-based Business Filter ---
+        const userRole = req.user?.role;
+        const currentUserId = req.user?._id; 
+
+        if (userRole === 'vendor' && currentUserId) {
+            filter.vendorId = currentUserId;
+        } else if (userRole === 'admin' && vendorId) {
+            filter.vendorId = vendorId;
+        }
+
+        // --- 2. Build Standard Filters ---
+        if (activeOnly) filter.isActive = true;
+        if (requestStatus) filter.requestStatus = requestStatus; 
+        if (businessName) {
+            filter.name = { $regex: businessName, $options: "i" };
+        }
+
+        // ✅ Veg / Non-Veg Filter (categoryType - FIX Applied)
+        if (foodType) {
+            if (foodType === 'veg') {
+                filter.categoryType = { $in: ['veg', 'both'] };
+            } else if (foodType === 'nonveg') {
+                filter.categoryType = { $in: ['nonveg', 'both'] };
+            } else if (foodType === 'drinks') {
+                filter.categoryType = foodType;
+            }
+        }
+        
+        // 2️⃣ Average Rating Range Filter
+        if (minAverageRating || maxAverageRating) {
+            filter.averageRating = {};
+            if (minAverageRating) filter.averageRating.$gte = Number(minAverageRating);
+            if (maxAverageRating) filter.averageRating.$lte = Number(maxAverageRating);
+        }
+
+
+        // --- 3. Distance Filter Logic ($geoNear) ---
+        if (longitude && latitude && radius && radius !== 'all') {
+            const userLongitude = parseFloat(longitude);
+            const userLatitude = parseFloat(latitude);
+            const maxDistanceMeters = parseFloat(radius) * 1000; 
+
+            if (!isNaN(userLongitude) && !isNaN(userLatitude) && !isNaN(maxDistanceMeters)) {
+                isGeospatialQuery = true;
+                
+                // $geoNear MUST be the first stage in the pipeline
+                pipeline.push({
+                    $geoNear: {
+                        near: { 
+                            type: "Point", 
+                            coordinates: [userLongitude, userLatitude] 
+                        },
+                        distanceField: "distance", // Add distance to the output documents
+                        maxDistance: maxDistanceMeters,
+                        spherical: true,
+                        // Move all non-geo filters into the 'query' field for $geoNear optimization
+                        query: filter
+                    }
+                });
+                // Since filters are moved to $geoNear's query field, clear the filter object
+                filter = {}; 
+            }
+        }
+        
+        // --- 4. Execute Query and Apply Pagination/Sorting ---
+        let businesses;
+        const skip = (page - 1) * limit;
+
+        if (isGeospatialQuery) {
+            // Aggregation Pipeline Mode (for $geoNear)
+
+            // Add rating sorting (Distance sorting is automatic in $geoNear)
+            if (sortRating === 'highToLow') {
+                pipeline.push({ $sort: { averageRating: -1, distance: 1 } }); // Sort by Rating, then Distance
+            } else if (sortRating === 'lowToHigh') {
+                pipeline.push({ $sort: { averageRating: 1, distance: 1 } });
+            } else {
+                pipeline.push({ $sort: { distance: 1 } }); // Default sort: Distance only
+            }
+
+            // Add Pagination Stages
+            pipeline.push({ $skip: Number(skip) });
+            pipeline.push({ $limit: Number(limit) });
+
+            // IMPORTANT: Since we are using aggregation, we must convert Mongoose .populate() calls
+            // into $lookup stages. This is a complex step, so we will skip it for now and
+            // recommend using Model.find() when possible, OR converting lookups explicitly.
+            
+            // Note: Since .populate() is not available in aggregation, the response will lack
+            // populated fields like categories, menuItems, etc., unless you add $lookup stages.
+            // For now, we run the query without lookups to resolve the $geoNear error.
+            businesses = await Business.aggregate(pipeline);
+
+        } else {
+            // Standard Query Mode (Model.find())
+
+            // Apply sorting logic for find()
+            if (sortRating === 'highToLow') {
+                sortOptions = { averageRating: -1, ...sortOptions }; 
+            } else if (sortRating === 'lowToHigh') {
+                sortOptions = { averageRating: 1, ...sortOptions };
+            }
+
+            businesses = await Business.find(filter)
+                .sort(sortOptions)
+                .skip(skip)
+                .limit(Number(limit))
+                // Populate statements for find()
+                .populate("categories")
+                .populate("menuItems")
+                .populate("tables")
+                .populate("schedules")
+                .populate({ path: "branches", populate: { path: "walletId", model: "Wallet" } })
+                .populate({ path: "reviews", populate: { path: "userId", select: "name email profileImage" } });
+        }
+
+        // --- 5. Count Logic ---
+        let count;
+        if (isGeospatialQuery) {
+            // For accurate count in $geoNear, use the $geoNear stage followed by $count
+            const countPipeline = [
+                pipeline[0], // The $geoNear stage
+                { $count: "totalCount" }
+            ];
+            const countResult = await Business.aggregate(countPipeline);
+            count = countResult.length > 0 ? countResult[0].totalCount : 0;
+        } else {
+            count = await Business.countDocuments(filter);
+        }
+        
+        res.status(200).json({
+            success: true,
+            count,
+            data: businesses,
+        });
+
+    } catch (error) {
+        console.error("getBusinesses error:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message,
+        });
     }
-    // Note: अगर userRole 'admin' है और vendorId नहीं दिया गया है, तो सभी बिज़नेस दिखेंगे
-    // -------------------------------------------------------------------
-
-    // 🔹 Active business filter
-    if (activeOnly) filter.isActive = true;
-
-    // 🔹 Search by Business Name
-    if (businessName) {
-      filter.name = { $regex: businessName, $options: "i" };
-    }
-
-    // 🔹 Location-based filters
-    if (area) filter["address.area"] = { $regex: area, $options: "i" };
-    if (street) filter["address.street"] = { $regex: street, $options: "i" };
-    if (pincode) filter["address.pincode"] = pincode;
-
-    // 🔹 Rating Filter (Top Rated Businesses)
-    if (topRated) {
-      filter.averageRating = { $gte: 2 }; 
-    }
-
-    // ✅ New Filter
-    if (requestStatus) {
-      filter.requestStatus = requestStatus; // e.g. pending / approved / denied
-    }
-
-    // 🔹 Menu Filters (Price Range + Item Name + Category)
-    let menuBusinessIds = [];
-
-    if (minRate || maxRate || menuItemName || category) {
-      const menuFilter = {};
-
-      // 🔹 Price Filter
-      if (minRate || maxRate) {
-        menuFilter.price = {};
-        if (minRate) menuFilter.price.$gte = Number(minRate);
-        if (maxRate) menuFilter.price.$lte = Number(maxRate);
-      }
-
-      // 🔹 Menu Item Name Filter
-      if (menuItemName)
-        menuFilter.name = { $regex: menuItemName, $options: "i" };
-
-      // 🔹 Category Filter
-      if (category)
-        menuFilter.category = { $regex: category, $options: "i" };
-
-      // 🔹 Find Matching Menu Items
-      const menus = await Item.find(menuFilter).select("businessId");
-      menuBusinessIds = menus.map((m) => m.businessId);
-
-      // 🔹 If no menus match, return empty response early
-      if (menuBusinessIds.length === 0) {
-        return res.status(200).json({ success: true, count: 0, data: [] });
-      }
-
-      // 🔹 Apply Business ID Filter
-      filter._id = { $in: menuBusinessIds };
-    }
-
-
-    // 🔹 Nearby Filter (example using city or lat/lng if available)
-    if (nearby && nearby.city) {
-      filter["address.city"] = { $regex: nearby.city, $options: "i" };
-    }
-
-    // 🔹 Execute Query with Pagination
-    const businesses = await Business.find(filter)
-      .sort(topRated ? { rating: -1 } : { createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit))
-      .populate("categories")
-      .populate("menuItems")
-      .populate("tables")
-      .populate("schedules")
-      .populate({
-        path: "branches",
-        populate: { path: "walletId", model: "Wallet" },
-      })
-      .populate({
-        path: "reviews",
-        populate: {
-          path: "userId",
-          select: "name email profileImage",
-        },
-      });
-
-    const count = await Business.countDocuments(filter);
-
-    res.status(200).json({
-      success: true,
-      count,
-      data: businesses,
-    });
-  } catch (error) {
-    console.error("getBusinesses error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
 };
 
 exports.deleteBusiness = async (req, res) => {
@@ -641,6 +696,40 @@ exports.updateBusinessStatus = async (req, res) => {
     });
   } catch (error) {
     console.error("updateBusinessStatus error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+exports.updateBusinessPopularStatus = async (req, res) => {
+  try {
+    const { businessId } = req.params;
+    // req.body से केवल isPopular फ़ील्ड को निकालें
+    const { isPopular } = req.body; 
+
+    // सुनिश्चित करें कि isPopular req.body में मौजूद है
+    if (isPopular === undefined) {
+      return res.status(400).json({ message: "Please provide 'isPopular' (true or false) to update." });
+    }
+
+    // सुनिश्चित करें कि isPopular एक boolean मान है
+    if (typeof isPopular !== "boolean") {
+      return res.status(400).json({ message: "Invalid 'isPopular' value. Must be a boolean (true or false)." });
+    }
+
+    const business = await Business.findById(businessId);
+    if (!business) return res.status(404).json({ message: "Business not found" });
+
+    // isPopular को अपडेट करें
+    business.isPopular = isPopular;
+
+    await business.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Business 'isPopular' status set to ${isPopular}.`,
+      data: business,
+    });
+  } catch (error) {
+    console.error("updateBusinessPopularStatus error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
