@@ -19,27 +19,25 @@ const detailRoutes = require("./Routes/Business");
 const bookingRoutes = require("./Routes/BookingRoute");
 const couponRoutes = require("./Routes/CouponRoutes");
 const slotRoutes = require("./Routes/slotRoutes");
-
+const homeRoutes = require("./Routes/HomeGlobalRoute");
 const app = express();
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 
 // Connect MongoDB
 connectDB();
-
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // API Routes
 app.use("/api/users", userRoutes);
-
 // app.use("/api/restaurants", restaurantRoutes);
 // app.use("/api/tables", tableRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/business", businessRoutes);
 app.use("/api/details", detailRoutes);
-
+app.use("/api/home",homeRoutes);
 app.use("/api/bookings", bookingRoutes);
 // app.use("/api/orders", orderRoutes);
 

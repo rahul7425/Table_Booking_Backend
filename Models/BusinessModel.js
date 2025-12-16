@@ -66,6 +66,10 @@ const businessSchema = new mongoose.Schema(
       enum: ["pending", "approved", "denied"],
       default: "pending",
     },
+    isPopular: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
